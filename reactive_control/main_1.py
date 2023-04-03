@@ -1,9 +1,6 @@
 import numpy as np
 from numpy import nan
-from numpy.linalg import inv
-from numpy.linalg import pinv
-from numpy.linalg import matrix_rank as rank
-from numpy.linalg import norm
+from numpy.linalg import inv,pinv,norm,matrix_rank as rank
 import matplotlib.pyplot as plt
 import time
 from math import sqrt
@@ -17,6 +14,9 @@ import main_1_conf as conf
 import solutions.main_1_solution as solution
 from example_robot_data.robots_loader import load
 import pinocchio as pin
+from contact_schedule import contact_schedule
+from solutions.WBC_HO import task,WBC_HO
+
 print("".center(conf.LINE_WIDTH,'#'))
 print(" Quadrupedal Robot".center(conf.LINE_WIDTH, '#'))
 print("".center(conf.LINE_WIDTH,'#'), '\n')
@@ -32,6 +32,7 @@ PLOT_EE_POS = 0
 r = load('a1')
 robot = RobotWrapper(r.model, r.collision_model, r.visual_model)
 simu = RobotSimulator(conf, robot)
+contact_schedul  = contact_schedule()
 simu.add_contact_surface("ground",conf.ground_pos,conf.ground_normal,
                          conf.ground_Kp,conf.ground_Kd,conf.ground_mu)
 [simu.add_candidate_contact_point(foot) for foot in conf.Foot_frame]
@@ -104,18 +105,39 @@ for ss in range(0, N):#ss: simualtion step
     # dJ6 = robot.frameJacobianTimeVariation(q[:,ss],v[:,ss],frame_id)
     # dJ = dJ6[:3,:]
 
-    J_s = np.zeros((3*3,18))
-    dJdq_s = np.zeros(3*3)
-    for j in range(len(conf.Foot_frame)-1) :
-        frame_id = robot.model.getFrameId(conf.Foot_frame[j])
-        J = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
-        dJdq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False).linear
-        dJ = robot.frameJacobianTimeVariation(q[:,ss],v[:,ss],frame_id)[:3,:]
-        J_s[3*j:3*j+3,:] = J
-        dJdq_s[3*j:3*j+3] = dJdq
+    J_s = np.zeros((3*4,18))
+    dJdq_s = np.zeros(3*4)
+    p_f = np.zeros((4,3))
+    v_f = np.zeros((4,3))
+    for j in range(len(conf.Foot_frame)) :
+        if contact_schedul.in_contact(j):
+            frame_id = robot.model.getFrameId(conf.Foot_frame[j])
+            J = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
+            dJdq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False).linear
+            dJ = robot.frameJacobianTimeVariation(q[:,ss],v[:,ss],frame_id)[:3,:]
+            H = robot.framePlacement(q[:,ss], frame_id, False)
+            v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
+            p_f[j,:] = H.translation
+            v_f[j,:] = v_frame.linear
+            J_s[3*j:3*j+3,:] = J
+            dJdq_s[3*j:3*j+3] = dJdq
+        else:
+            frame_id = robot.model.getFrameId(conf.Foot_frame[j])
+            J = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
+            dJdq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False).linear
+            dJ = robot.frameJacobianTimeVariation(q[:,ss],v[:,ss],frame_id)[:3,:]
+            H = robot.framePlacement(q[:,ss], frame_id, False)
+            v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
+            p_f[j,:] = H.translation
+            v_f[j,:] = v_frame.linear
+            J_s[3*j:3*j+3,:] = J
+            dJdq_s[3*j:3*j+3] = dJdq
 
     Q,R = np.linalg.qr(J_s.T,'complete')
-    Q_u = Q[:,9:]#
+    Q_u = Q[:,12:]#
+    Q_c = Q[:,:12]
+
+
     ##control body pos and orientation
     J_bp = np.zeros((3,18))
     J_bR = np.zeros((3,18))
@@ -149,23 +171,39 @@ for ss in range(0, N):#ss: simualtion step
 
     #hierarchical optimization
     kexi = np.zeros(30)
+    d_spe = (12,18)
     A1 = Q_u.T@np.hstack([-M,S.T])
     b1 = Q_u.T@h
-    kexi = solution.WBC_HO(A1,b1)
+    D1 = np.block([[np.zeros(d_spe), np.eye(12)],
+                   [np.zeros(d_spe),-np.eye(12)]])
+    f1 = np.block([np.ones(12)*33.5,np.ones(12)*33.5])
 
+    kexi = solution.WBC_HO(A1,b1,D1,f1)
+    t1 =task(A1,b1,D1,f1,0)
+
+
+
+
+
+    #need to add some inequalities
     Z1 = np.eye(30) - pinv(A1)@A1
-    A2 = np.hstack([J_s,np.zeros((9,12))])
+    
+    A2 = np.hstack([J_s,np.zeros((12,12))])
     b2 = -dJdq_s
     dkexi = solution.WBC_HO(A2@Z1,b2-A2@kexi)
     kexi += dkexi
+    t2 = task(A2,b2,None,None,1)
+
     #the differnce of the hierarchical settings
 #motion tracking of legs
-
 #
+#    which leg
+#   
     Kp_bp = 10
     Kd_bp = 2*sqrt(Kp_bp)
     Kp_bR = 10
     Kd_bR = 2*sqrt(Kp_bR)
+    
     Z2 = Z1@(np.eye(30)-pinv(A2@Z1)@A2@Z1)
     A3 = np.vstack([np.hstack([J_bp,np.zeros((3,12))]),
                     np.hstack([J_bR,np.zeros((3,12))])])
@@ -174,14 +212,15 @@ for ss in range(0, N):#ss: simualtion step
 
     dkexi = solution.WBC_HO(A3@Z2,b3-A3@kexi)
     kexi += dkexi
+    t3 = task(A3,b3,None,None,2)
+    out = WBC_HO([t1,t2,t3]).solve()
     #test for motion tracking 
-
     # Z3 = Z2@(np.eye(30)-pinv(A3@Z2)@A3@Z2)
 
     # Z4 = Z3@(np.eye(30)-pinv(A4@Z3)@A4@Z3)
     # multi task optimizition same priority
     # J_stack,dJdq_stack,ddx_des_stack=solution.multi_task_jacobian_ref(robot,q[:,ss],v[:,ss],conf)
-    tau[:,ss] = np.hstack([np.zeros(6),kexi[18:]])
+    tau[:,ss] = np.hstack([np.zeros(6),out[18:]])
     # tau[:,ss] = solution.operational_motion_control(q[:,ss], v[:,ss], ddx_des[:,ss], h, M, J, dJdq, conf)
     # tau[:,ss] = solution.task_qp(q[:,ss],v[:,ss], ddx_des[:,ss],M,h,J,dJdq,conf)
     # tau[:,ss] = solution.task_qp(q[:,ss],v[:,ss], ddx_des_stack,M,h,J_stack,dJdq_stack,conf)
@@ -190,13 +229,16 @@ for ss in range(0, N):#ss: simualtion step
 
     # send joint torques to simulator
     simu.simulate(tau[:,ss], conf.dt, conf.ndt)
+    contact_schedul.update(conf.dt)
+    # contact_schedul.print()
     tau_c[:,ss] = simu.tau_c#friction
     # print(tau[:,ss])
     if ss%PRINT_N == 0:
         print("Time %.3f"%(t))
     t += conf.dt
-        
     time_spent = time.time() - time_start
+    
+    print("---------------------",time_spent,conf.dt)
     if(conf.simulate_real_time and time_spent < conf.dt): 
         time.sleep(conf.dt-time_spent)
 

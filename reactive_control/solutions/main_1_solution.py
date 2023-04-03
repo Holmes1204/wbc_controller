@@ -183,12 +183,15 @@ def multi_task_jacobian_ref(robot,q,v,conf):
     return J_stack, dJdq_stack,ddx_des_stack
 
 
-def WBC_HO(A,b):
+def WBC_HO(A,b,D=None,f=None):
     #this one have to make sure the matrix in positive define
     G_1 = A.T@A +1e-9*np.eye(30)
     a_1 = A.T@b
     # a_1 = a_1.reshape(24)
-    xf, f, xu, iters, lagr, iact = solve_qp(G_1, a_1)
+    if D is None:
+        xf, f, xu, iters, lagr, iact = solve_qp(G_1, a_1)
+    else:
+        xf, f, xu, iters, lagr, iact = solve_qp(G_1, a_1,-D.T,-f)
 
     # print("3\n",tau[12:].reshape(4,3))
     return xf
