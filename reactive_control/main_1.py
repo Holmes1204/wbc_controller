@@ -64,16 +64,22 @@ S[:,6:]=np.eye(12)
 t = 0.0
 kp, kd = conf.kp, conf.kd
 PRINT_N = int(conf.PRINT_T/conf.dt)
-
+B_ = np.array([[ 1, 0,-conf.ground_mu],
+               [-1, 0,-conf.ground_mu],
+               [ 0, 1,-conf.ground_mu],
+               [ 0,-1,-conf.ground_mu],
+               [ 0, 0,-1],
+               [ 0, 0, 1]])
+beta_ =np.array([0,0,0,0,0,50])
 for ss in range(0, N):#ss: simualtion step
     time_start = time.time()
     # set reference trajectory
     # x_ref[:,ss]  = conf.x0 +  conf.amp*np.sin(two_pi_f*t + conf.phi)
     # dx_ref[:,ss]  = two_pi_f_amp * np.cos(two_pi_f*t + conf.phi)
     # ddx_ref[:,ss] = - two_pi_f_squared_amp * np.sin(two_pi_f*t + conf.phi)
-    x_ref[:,ss]  =  np.array([0.0,0.10,0.32])  
-    dx_ref[:,ss] = np.array([0.0, 0.0, 0.0])  
-    ddx_ref[:,ss] = np.array([0.0, 0.0, 0.0])  
+    # x_ref[:,ss]  =  np.array([0.0,0.10,0.32])  
+    # dx_ref[:,ss] = np.array([0.0, 0.0, 0.0])  
+    # ddx_ref[:,ss] = np.array([0.0, 0.0, 0.0])  
     # read current state from simulator
     v[:,ss] = simu.v
     q[:,ss] = simu.q
@@ -110,6 +116,7 @@ for ss in range(0, N):#ss: simualtion step
     p_f = np.zeros((4,3))
     v_f = np.zeros((4,3))
     j_contact = 0
+    
     #state feedback and Jacobian and djacobian@dq
     for j in range(len(conf.Foot_frame)) :
         tasks = []
@@ -148,24 +155,46 @@ for ss in range(0, N):#ss: simualtion step
     dx_bp = v_frame.linear # take linear part of 6d velocity
     dx_bR = v_frame.angular
     dx_bp_des = np.array([0,0,0])
-    dx_bR_des = np.array([0,0,0])
+    dx_bR_des = np.array([0.0,0.0,0.0])
     #here is contact
     n_contact = contact_schedul.contact_num()
     J_st = np.zeros((3*n_contact,18))
     dJdq_st = np.zeros(3*n_contact)
     J_sw = np.zeros((3*(4-n_contact),18))
     dJdq_sw = np.zeros(3*(4-n_contact))
+
     p_sw = np.zeros(3*(4-n_contact))
     dp_sw = np.zeros(3*(4-n_contact))
     p_sw_des = np.zeros(3*(4-n_contact))
     dp_sw_des = np.zeros(3*(4-n_contact))
 
+    D2 = np.zeros((n_contact*B_.shape[0],n_contact*B_.shape[1]))
+    f2 = np.zeros(n_contact*beta_.shape[0])
     if n_contact == 4:
         #first contact
         J_st=J_f
         dJdq_st=dJdq_f
+        B_st = np.block([[B_,np.zeros((6,3)),np.zeros((6,3)),np.zeros((6,3))],
+                         [np.zeros((6,3)),B_,np.zeros((6,3)),np.zeros((6,3))],
+                         [np.zeros((6,3)),np.zeros((6,3)),B_,np.zeros((6,3))],
+                         [np.zeros((6,3)),np.zeros((6,3)),np.zeros((6,3)),B_]])
+        beta_st = np.block([beta_,beta_,beta_,beta_])
+        Q,R = np.linalg.qr(J_st.T,'complete')
+        R = R[:R.shape[1],:]
+        Q_u = Q[:,3*n_contact:]# when n_contact == 0, something tricky will happen
+        Q_c = Q[:,:3*n_contact]
+        d_spe = (12,18)
+        A1 = Q_u.T@np.hstack([-M,S.T])#so important that this can help imporve the efficiency
+        b1 = Q_u.T@h
+        D1 = np.block([[np.zeros(d_spe), np.eye(12)],
+                       [np.zeros(d_spe),-np.eye(12)]])
+        f1 = np.block([np.ones(12)*33.5,np.ones(12)*33.5])
+        # kexi = solution.WBC_HO(A1,b1,D1,f1)
         A2 = np.hstack([J_st,np.zeros((3*n_contact,12))])
         b2 = -dJdq_st
+        D2 = B_st@inv(R)@Q_c.T@np.hstack([M,-S.T])
+        f2 = beta_ - B_st@inv(R)@Q_c.T@h
+        task.append(task(A1,b1,D1,f1,0))
         tasks.append(task(A2,b2,None,None,1))
     elif n_contact < 4 and n_contact >0:
         j_st = 0
@@ -173,36 +202,48 @@ for ss in range(0, N):#ss: simualtion step
         for j in range(len(conf.Foot_frame)) :
             if contact_schedul.in_contact(j):
                 J_st[3*j_st:3*j_st+3,:] = J_f[3*j:3*j+3,:]
-                dJdq_st[3*j_st:3*j_st+3] = dJdq[3*j:3*j+3]
+                dJdq_st[3*j_st:3*j_st+3] = dJdq_f[3*j:3*j+3]
                 j_st +=1
+                #in contact must have the force constrints,FL,FR,RL,RR
+
             else:
                 #calculate the A
                 J_sw[3*j_sw:3*j_sw+3,:] = J_f[3*j:3*j+3,:]
-                dJdq_sw[3*j_sw:3*j_sw+3] =  dJdq[3*j:3*j+3]
-                p_sw[3*j_sw:3*j_sw+3]=p_f[3*j:3*j+3]
-                dp_sw[3*j_sw:3*j_sw+3] = v_f[3*j:3*j+3]
-                p_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_pos[j]
-                dp_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_vel[j]
+                dJdq_sw[3*j_sw:3*j_sw+3] =  dJdq_f[3*j:3*j+3]
+                p_sw[3*j_sw:3*j_sw+3]=p_f[j]
+                dp_sw[3*j_sw:3*j_sw+3] = v_f[j]
+                p_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_pos(j)
+                dp_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_vel(j)
                 j_sw +=1
+        #some tricky copied 
+        #task1
+        d_spe = (12,18)
+        A1 = Q_u.T@np.hstack([-M,S.T])#so important that this can help imporve the efficiency
+        b1 = Q_u.T@h
+        D1 = np.block([[np.zeros(d_spe), np.eye(12)],
+                       [np.zeros(d_spe),-np.eye(12)]])
+        f1 = np.block([np.ones(12)*33.5,np.ones(12)*33.5])
+        #task2
         A2 = np.hstack([J_st,np.zeros((3*n_contact,12))])
         b2 = -dJdq_st
-        tasks.append(task(A2,b2,None,None,1))
-        #here is ok
+        D2 = B_st@inv(R)@Q_c.T@np.hstack([M,-S.T])
+        f2 = beta_ - B_st@inv(R)@Q_c.T@h
+
+
         Kp_sw = 10
         Kd_sw = 2*sqrt(Kp_sw)
+        #task3
         A3 = np.hstack([J_sw,np.zeros((3*(4-n_contact),12))])
         b3 = -dJdq_sw+Kp_sw*(p_sw_des-p_sw)+Kd_sw*(dp_sw_des-dp_sw)
-        tasks.append(task(A3,b3,None,None,2))
+        task.append(task(A1,b1,D1,f1,0))
+        tasks.append(task(A2,b2,None,None,1))
+        # tasks.append(task(A3,b3,None,None,3))
     else:
         J_sw = J_f
         dJdq_sw = dJdq_sw
         A3 = np.hstack([J_sw,np.zeros((3*(4-n_contact),12))])
         b3 = -dJdq_sw+Kp_sw*(p_sw_des-p_sw)+Kd_sw*(dp_sw_des-dp_sw)
-        tasks.append(task(A3,b3,None,None,2))
-    Q,R = np.linalg.qr(J_st.T,'complete')
-    Q_u = Q[:,3*n_contact:]# when n_contact == 0, something tricky will happen
-    Q_c = Q[:,:3*n_contact]
-    
+        tasks.append(task(A3,b3,None,None,3))
 
 
     #jacobian
@@ -220,24 +261,17 @@ for ss in range(0, N):#ss: simualtion step
 
 
     #hierarchical optimization
-    kexi = np.zeros(30)
-    d_spe = (12,18)
-    A1 = Q_u.T@np.hstack([-M,S.T])#so important that this can help imporve the efficiency
-    b1 = Q_u.T@h
-    D1 = np.block([[np.zeros(d_spe), np.eye(12)],
-                   [np.zeros(d_spe),-np.eye(12)]])
-    f1 = np.block([np.ones(12)*33.5,np.ones(12)*33.5])
-    kexi = solution.WBC_HO(A1,b1,D1,f1)
-    t1 =task(A1,b1,D1,f1,0)
+    # kexi = np.zeros(30)
+
 
     #need to add some inequalities
-    Z1 = np.eye(30) - pinv(A1)@A1
+    # Z1 = np.eye(30) - pinv(A1)@A1
     
-    A2 = np.hstack([J_st,np.zeros((12,12))])
-    b2 = -dJdq_st
-    dkexi = solution.WBC_HO(A2@Z1,b2-A2@kexi)
-    kexi += dkexi
-    t2 = task(A2,b2,None,None,1)
+    # A2 = np.hstack([J_st,np.zeros((3*n_contact,12))])
+    # b2 = -dJdq_st
+    # dkexi = solution.WBC_HO(A2@Z1,b2-A2@kexi)
+    # kexi += dkexi
+    # t2 = task(A2,b2,None,None,1)
 
     #the differnce of the hierarchical settings
 #motion tracking of legs
@@ -248,21 +282,19 @@ for ss in range(0, N):#ss: simualtion step
     Kd_bp = 2*sqrt(Kp_bp)
     Kp_bR = 10
     Kd_bR = 2*sqrt(Kp_bR)
-    
-    Z2 = Z1@(np.eye(30)-pinv(A2@Z1)@A2@Z1)
+    # Z2 = Z1@(np.eye(30)-pinv(A2@Z1)@A2@Z1)
     A3 = np.vstack([np.hstack([J_bp,np.zeros((3,12))]),
                     np.hstack([J_bR,np.zeros((3,12))])])
     b3 = np.hstack([-dJdq_bp+Kp_bp*(x_bp_des-x_bp)+Kd_bp*(dx_bp_des-dx_bp),
                     -dJdq_bR+Kp_bR*(pin.log3(x_bR_des.dot(x_bR.T)))+Kd_bR*(dx_bR_des-dx_bR)])
 
-    dkexi = solution.WBC_HO(A3@Z2,b3-A3@kexi)
-    kexi += dkexi
-    t3 = task(A3,b3,None,None,2)
-    out = WBC_HO([t1,t2,t3]).solve()
+    tasks.append(task(A3,b3,None,None,2))
+    out = WBC_HO(tasks).solve()
     #test for motion tracking 
     # Z3 = Z2@(np.eye(30)-pinv(A3@Z2)@A3@Z2)
     # Z4 = Z3@(np.eye(30)-pinv(A4@Z3)@A4@Z3)
-
+    F = inv(R)@Q_c.T@(M@out[:18]+h-S.T@out[18:])
+    
 
     tau[:,ss] = np.hstack([np.zeros(6),out[18:]])
     # send joint torques to simulator
@@ -274,8 +306,7 @@ for ss in range(0, N):#ss: simualtion step
         print("Time %.3f"%(t))
     t += conf.dt
     time_spent = time.time() - time_start
-    
-    print("---------------------",time_spent,conf.dt)
+
     if(conf.simulate_real_time and time_spent < conf.dt): 
         time.sleep(conf.dt-time_spent)
 

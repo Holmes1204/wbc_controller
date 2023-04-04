@@ -103,3 +103,7 @@ array([[13.741,  0.   ,  0.   , -0.   , -0.317, -0.025,  0.   , -0.079, -0.023, 
 h
 array([  0.   ,   0.   , 134.799,   0.241,   1.153,   0.   ,   0.801,   0.288,  -0.181,  -0.801,   0.288,  -0.181,   0.801,   0.288,  -0.181,  -0.801,   0.288,  -0.181])
 
+only use the Jddq+dJdq = 0 as constraints will lead to bad performance when the leg slipped
+how to simulate the contact
+the detailed of the motion result
+and simulation can be understood by the idea of smapling

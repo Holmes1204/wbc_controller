@@ -13,8 +13,8 @@ np.set_printoptions(precision=3, linewidth=200, suppress=True)
 LINE_WIDTH = 60
 
 # q0 = np.array([0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3])# fixed body frame
-q0 = np.array([0.0,0.0,0.32,0.0,0.0,0.0,1.0,0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3])# floating base
-T_SIMULATION = 3            # simulation time
+q0 = np.array([0.0,0.0,0.31836983483860026,0.0,0.0,0.0,1.0,0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3])# floating base
+T_SIMULATION = 0.5            # simulation time
 dt = 0.0005                   # controller time step second control time
 ndt = 20                      # number of integration steps for each control loop dt/ndt is the real  simulation time
 
@@ -55,7 +55,7 @@ model_variation = 30.0
 use_viewer = True
 simulate_real_time = False          # flag specifying whether simulation should be real time or as fast as possible
 show_floor = False
-PRINT_T = 1                   # print some info every PRINT_T seconds
-DISPLAY_T = 0.02              # update robot configuration in viwewer every DISPLAY_T seconds
+PRINT_T = 0.05                  # print some info every PRINT_T seconds
+DISPLAY_T = 0.0005              # update robot configuration in viwewer every DISPLAY_T seconds
 CAMERA_TRANSFORM = [2.582354784011841, 1.620774507522583, 1.0674564838409424, 
                     0.2770655155181885, 0.5401807427406311, 0.6969326734542847, 0.3817386031150818]

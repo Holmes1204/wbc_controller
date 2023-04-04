@@ -74,7 +74,7 @@ class contact_schedule:
     lift_off = [0.05,0.2,0.55,0.7]# the lift off event time
     first_stand = [True,True,True,True]
     next_foot =np.zeros((4,3))
-    swing_coeff = np.zeros((4,12))
+    swing_coeff = np.zeros((4,36))
     #change the force by the phase
     def __init__(self):
         self.touch_down = [self.lift_off[i] + self.swing_phase for i in range(4)]#the touch down event time
@@ -93,7 +93,7 @@ class contact_schedule:
         for i in range(4):
             if self.current_phi > self.lift_off[i] and self.current_phi < self.touch_down[i]:
                 self.contact[i] = False
-                self.first_stand = True
+                self.first_stand[i] = True
                 self.phase[i] = (self.current_phi - self.lift_off[i])*self.time_factor#in time (second)
             else:
                 self.contact[i] = True
@@ -104,7 +104,7 @@ class contact_schedule:
                     #2. get the coefficient of the swing trajectory 
                     self.swing_coeff[i] = traj_2seg_spline(foot[i],self.next_foot[i],self.swing_phase*self.time_factor*0.5)
                     #plan
-                    self.first_stand  = False
+                    self.first_stand[i]  = False
                     pass
                 self.phase[i] = (self.time_factor-self.current_phi+self.lift_off[i])*self.time_factor \
                     if self.current_phi > self.lift_off[i] else (self.lift_off[i]-self.current_phi)*self.time_factor
@@ -144,6 +144,9 @@ class contact_schedule:
 if __name__ == "__main__":
     contact = contact_schedule()
     dt = 0.001
+    foot = np.zeros((4,3))
     for i in range(1000):
-        contact.update(dt)
+        contact.update(dt,foot)
+        contact.swing_foot_traj_pos(0)
+        contact.swing_foot_traj_vel(0)
         contact.print()

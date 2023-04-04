@@ -80,8 +80,8 @@ class WBC_HO:
                 fs_ = f_
             else:
                 Dhat = np.block([[D_@Z_          ,-np.eye(m)],
-                              [Ds_@Z_         ,np.zeros((Ds_.shape[0],m))],
-                              [np.zeros((m,n)),np.eye(m)]])
+                                [Ds_@Z_         ,np.zeros((Ds_.shape[0],m))],
+                                [np.zeros((m,n)),np.eye(m)]])
                 fhat = np.block([f_ - D_@x,fs_ - Ds_@x + va_,np.zeros(m)])
                 Ds_ = np.vstack([Ds_,D_])
                 fs_ = np.hstack([fs_,f_])
