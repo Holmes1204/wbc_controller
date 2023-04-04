@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
-from numpy.linalg import matrix_rank as rank,inv
+from numpy.linalg import matrix_rank as rank
+from numpy.linalg import inv
 
 p_s = np.array([0,0,0])
 dp_s = np.array([0,0,0])
@@ -100,4 +101,10 @@ ax.legend()
 plt.show()
 
 
-#yici
+class foot_traj:
+    def __init__(self) -> None:
+        pass
+        
+    def traj(self,phase):
+
+        return None
