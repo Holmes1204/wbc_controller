@@ -7,11 +7,11 @@ p_s = np.array([0,0,0])
 dp_s = np.array([0,0,0])
 ddp_s = np.array([0,0,0])
 
-p_m = np.array([1,1,1])
-dp_m = np.array([1,1,0])
+p_m = np.array([0,0,1])
+dp_m = np.array([0,0,0])
 ddp_m = np.array([0,0,0])
 
-p_e = np.array([2,2,0])
+p_e = np.array([0,0,0])
 dp_e = np.array([0,0,0])
 ddp_e = np.array([0,0,0])
 

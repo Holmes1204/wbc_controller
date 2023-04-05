@@ -46,10 +46,10 @@ for swing foot motion, we get some assumption like this
 def traj_2seg_spline(p_s,p_e,T):
     
     p_m  = 0.5*(p_s + p_e)+np.array([0.,0.,0.05])
+    dp_m =np.array([.5,0.,0.])
 
     dp_s =np.zeros(3)
     dp_e =np.zeros(3)
-    dp_m =np.array([1.,0.,0.])
 
     ddp_e =np.zeros(3)
     ddp_s =np.zeros(3)
@@ -71,7 +71,7 @@ class contact_schedule:
     contact = [True,True,True,True]# [FL,FR, RL,RR] follow this sequence, True is in contact, False means in swing phase
     phase = [0,0,0,0]#  when in contact the phase decreasing for 0.75 to 0, when in swing the phase increasing for 0 to 0.25 seconds have 
     current_phi = 0#contact schedule phase 
-    lift_off = [0.05,0.2,0.55,0.7]# the lift off event time
+    lift_off = [0.05,0.55,0.7,0.2]# the lift off event time!
     first_stand = [True,True,True,True]
     next_foot =np.zeros((4,3))
     swing_coeff = np.zeros((4,36))
@@ -127,10 +127,18 @@ class contact_schedule:
         
 
     def swing_foot_traj_vel(self,leg):
-        if(self.phase[leg]<self.swing_phase*self.time_factor):
+        if(self.phase[leg]<self.swing_phase*self.time_factor*0.5):
             return mdnt(self.phase[leg])@self.swing_coeff[leg,:18]
         else:
             return mdnt(self.phase[leg]%(self.swing_phase*self.time_factor*0.5))@self.swing_coeff[leg,18:]
+        
+
+
+    def swing_foot_traj_acc(self,leg):
+        if(self.phase[leg]<self.swing_phase*self.time_factor*0.5):
+            return mddnt(self.phase[leg])@self.swing_coeff[leg,:18]
+        else:
+            return mddnt(self.phase[leg]%(self.swing_phase*self.time_factor*0.5))@self.swing_coeff[leg,18:]
         
 
     def print(self):

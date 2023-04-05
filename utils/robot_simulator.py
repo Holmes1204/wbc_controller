@@ -80,7 +80,10 @@ class ContactSurface:
             # update anchor point so that f is inside friction cone
             delta_p0 = (f_T_norm - self.mu*f_N) / self.K[0,0]
             p0 -= t_dir*delta_p0
-            
+        
+        if(f[2]<=0):
+            f = np.zeros(3)
+
         return f, p0
         
 
