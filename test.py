@@ -7,7 +7,7 @@ import gepetto.corbaserver
 import time
 import os
 import subprocess
-model, collision_model, visual_model = pin.buildModelsFromUrdf("a1_description/urdf/a1.urdf", "/home/holmes/Documents/code/python/orc",pin.JointModelFreeFlyer())
+model, collision_model, visual_model = pin.buildModelsFromUrdf("a1_description/urdf/a1.urdf", ".",pin.JointModelFreeFlyer())
 # model, collision_model, visual_model = pin.buildModelsFromUrdf("kinova_description/robots/kinova.urdf", "/home/holmes/Documents/code/python/orc")
 robot = RobotWrapper(model, collision_model, visual_model)
 try:

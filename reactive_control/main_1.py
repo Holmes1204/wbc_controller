@@ -263,13 +263,13 @@ for ss in range(0, N):#ss: simualtion step
 
     #jacobian
     J = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
-    dJdq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False).angular
+    dJdq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False).linear
     dJ = robot.frameJacobianTimeVariation(q[:,ss],v[:,ss],frame_id)[:3,:]
     J_bp = J
     dJdq_bp = dJdq
     #
     J = robot.frameJacobian(q[:,ss], frame_id, False)[3:,:]
-    dJdq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False).linear
+    dJdq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False).angular
     dJ = robot.frameJacobianTimeVariation(q[:,ss],v[:,ss],frame_id)[3:,:]
     J_bR = J
     dJdq_bR = dJdq
