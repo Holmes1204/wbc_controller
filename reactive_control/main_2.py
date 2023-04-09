@@ -10,7 +10,6 @@ import utils.plot_utils as plut
 from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator
 import main_2_conf as conf
-import solutions.main_1_solution as solution
 from example_robot_data.robots_loader import load
 import pinocchio as pin
 from contact_schedule import contact_schedule
@@ -268,12 +267,14 @@ for ss in range(0, N):#ss: simualtion step
     Kd_mp = 2*sqrt(Kp_mp)
     Kp_mR = 100
     Kd_mR = 2*sqrt(Kp_mR)
-    f = 5
-    amp = np.array([0.0,0.0,0.2])
-    x_mp_des = np.array([ 0.703, -0.01 ,  0.661])+amp*np.array([sin(2*pi*f*t),sin(2*pi*f*t+2*pi/3),sin(2*pi*f*t-2*pi/3)])
+    f = 1
+    omega = 2*pi*f
+    amp = np.array([0.0,0.0,0.1])
+    x_mp_des = np.array([ 0.703, -0.01 ,  0.661])+amp*np.sin([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
     x_mR_des = np.eye(3)
-    dx_mp_des= np.array([0,0,0])
+    dx_mp_des= np.array([0,0,0])+amp*omega*np.cos([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
     dx_mR_des = np.array([0,0,0])
+    ddx_mp_des= -amp*omega*omega*np.sin([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
     #create task
     A5 = np.vstack([np.hstack([J_mp,np.zeros((3,nt))]),
                     np.hstack([J_mR,np.zeros((3,nt))])])
