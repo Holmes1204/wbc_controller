@@ -17,6 +17,7 @@ import pinocchio as pin
 from contact_schedule import contact_schedule
 from solutions.WBC_HO import task,WBC_HO
 
+
 print("".center(conf.LINE_WIDTH,'#'))
 print(" Quadrupedal Robot".center(conf.LINE_WIDTH, '#'))
 print("".center(conf.LINE_WIDTH,'#'), '\n')
@@ -118,10 +119,9 @@ for ss in range(0, N):#ss: simualtion step
     p_f = np.zeros((4,3))
     v_f = np.zeros((4,3))
     j_contact = 0
-    
+    tasks = []
     #state feedback and Jacobian and djacobian@dq
     for j in range(len(conf.Foot_frame)) :
-        tasks = []
         frame_id = robot.model.getFrameId(conf.Foot_frame[j])
         J = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
         dJdq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False).linear
@@ -139,7 +139,14 @@ for ss in range(0, N):#ss: simualtion step
         # else:
         #     J_sw[3*j:3*j+3,:] = J
         #     dJdq_sw[3*j:3*j+3] = dJdq
-
+    p_h = np.zeros((4,3))
+    v_h = np.zeros((4,3))
+    for j in range(len(conf.Hip_frame)) :
+        frame_id = robot.model.getFrameId(conf.Hip_frame[j])
+        H = robot.framePlacement(q[:,ss], frame_id, False)
+        v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
+        p_h[j,:] = H.translation+np.array([0.0,(-1)**j*0.084,0.0])
+        v_h[j,:] = v_frame.linear
 
 
     ##control body pos and orientation
@@ -151,12 +158,12 @@ for ss in range(0, N):#ss: simualtion step
     H = robot.framePlacement(q[:,ss], frame_id, False)
     x_bp= H.translation # take the 3d position of the end-effector
     x_bR = H.rotation
-    x_bp_des = np.array([0.08*ss*conf.dt,0,0.32])
+    x_bp_des = np.array([x_bp[0],0,0.32])
     x_bR_des = np.eye(3)
     v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
     dx_bp = v_frame.linear # take linear part of 6d velocity
     dx_bR = v_frame.angular
-    dx_bp_des = np.array([0.00,0,0])
+    dx_bp_des = np.array([0.04,0.04,0])
     dx_bR_des = np.array([0.0,0.0,0.0])
     #here is contact
     n_contact = contact_schedul.contact_num()
@@ -316,7 +323,7 @@ for ss in range(0, N):#ss: simualtion step
     tau[:,ss] = np.hstack([np.zeros(6),out[18:]])
     # send joint torques to simulator
     simu.simulate(tau[:,ss], conf.dt, conf.ndt)
-    contact_schedul.update(conf.dt,p_f)
+    contact_schedul.update(conf.dt,p_f,p_h,v_frame.linear)
     # print(tau[:,ss])
     if ss%PRINT_N == 0:
         print("Time %.3f"%(t))

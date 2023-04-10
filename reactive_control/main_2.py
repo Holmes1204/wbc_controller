@@ -128,7 +128,7 @@ for ss in range(0, N):#ss: simualtion step
         J_f[3*j:3*j+3,:] = J
         dJdq_f[3*j:3*j+3] = dJdq
 
-    n_contact =4
+    # n_contact =4
     if n_contact == 4:
         #first contact
         J_st=J_f
@@ -204,7 +204,7 @@ for ss in range(0, N):#ss: simualtion step
         #add all the task
         tasks.append(task(A1,b1,D1,f1,0))
         tasks.append(task(A2,b2,D2,f2,1))
-        tasks.append(task(A4,b4,None,None,3))
+        tasks.append(task(A4,b4,None,None,4))
 
 
     else:
@@ -239,6 +239,7 @@ for ss in range(0, N):#ss: simualtion step
     x_bR_des = np.eye(3)
     dx_bp_des = np.array([0.0,0,0])
     dx_bR_des = np.array([0.0,0.0,0.0])
+    ddx_bp_des = np.array([0.0,0,0])
     #create task
     A3 = np.vstack([np.hstack([J_bp,np.zeros((3,nt))]),
                     np.hstack([J_bR,np.zeros((3,nt))])])
@@ -263,9 +264,9 @@ for ss in range(0, N):#ss: simualtion step
     J_mR = robot.frameJacobian(q[:,ss], frame_id, False)[3:,:]
     dJdq_mR = a_frame_no_ddq.angular
     #set reference (world frame)
-    Kp_mp = 1000
+    Kp_mp = 10
     Kd_mp = 2*sqrt(Kp_mp)
-    Kp_mR = 100
+    Kp_mR = 10
     Kd_mR = 2*sqrt(Kp_mR)
     f = 1
     omega = 2*pi*f
@@ -280,7 +281,7 @@ for ss in range(0, N):#ss: simualtion step
                     np.hstack([J_mR,np.zeros((3,nt))])])
     b5 = np.hstack([-dJdq_mp+Kp_mp*(x_mp_des-x_mp)+Kd_mp*(dx_mp_des-dx_mp),
                     -dJdq_mR+Kp_mR*(pin.log3(x_mR_des.dot(x_mR.T)))+Kd_mR*(dx_mR_des-dx_mR)])
-    tasks.append(task(A5,b5,None,None,5))
+    tasks.append(task(A5,b5,None,None,3))
     
     #record to print the data
     mx[:,ss]= x_mp

@@ -27,6 +27,11 @@ FR_foot = 'FR_foot'
 RL_foot = 'RL_foot'    
 RR_foot = 'RR_foot'    
 Foot_frame = [FL_foot,FR_foot,RL_foot,RR_foot]
+FL_hip = 'FL_hip'    
+FR_hip = 'FR_hip'    
+RL_hip = 'RL_hip'    
+RR_hip = 'RR_hip'  
+Hip_frame = [FL_hip,FR_hip,RL_hip,RR_hip]
 # PARAMETERS OF REFERENCE SINUSOIDAL TRAJECTORY
 x0          = np.array([0.6, 0.2, 0.4])         # offset
 amp         = np.array([0.1, 0.1, 0.0])           # amplitude

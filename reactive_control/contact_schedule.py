@@ -46,7 +46,7 @@ for swing foot motion, we get some assumption like this
 def traj_2seg_spline(p_s,p_e,T):
     
     p_m  = 0.5*(p_s + p_e)+np.array([0.,0.,0.05])
-    dp_m =np.array([.5,0.,0.])
+    dp_m =np.array([0.5,0.5,0.])
 
     dp_s =np.zeros(3)
     dp_e =np.zeros(3)
@@ -65,7 +65,7 @@ def traj_2seg_spline(p_s,p_e,T):
 
 
 class contact_schedule:
-    time_factor = 1.0 # the time of a period of motion
+    time_factor = 0.5 # the time of a period of motion
     stance_phase = 0.75# the phase of stance 
     swing_phase = 0.25# the time of swing 
     contact = [True,True,True,True]# [FL,FR, RL,RR] follow this sequence, True is in contact, False means in swing phase
@@ -73,6 +73,7 @@ class contact_schedule:
     current_phi = 0#contact schedule phase 
     lift_off = [0.05,0.55,0.7,0.2]# the lift off event time!
     first_stand = [True,True,True,True]
+    first_swing = [False,False,False,False]
     next_foot =np.zeros((4,3))
     swing_coeff = np.zeros((4,36))
     #change the force by the phase
@@ -86,12 +87,18 @@ class contact_schedule:
     """
     foot: np.array, shape(3,4)
     """
-    def update(self,dt,foot):
+    def update(self,dt,foot,hip,v):
         self.current_phi +=dt/self.time_factor
         if self.current_phi > 1.0:
             self.current_phi = 0.0
         for i in range(4):
             if self.current_phi > self.lift_off[i] and self.current_phi < self.touch_down[i]:
+                if self.first_swing[i] :
+                    #do some thing
+                    #2. get the coefficient of the swing trajectory 
+                    self.swing_coeff[i] = traj_2seg_spline(foot[i],self.next_foot[i],self.swing_phase*self.time_factor*0.5)
+                    #plan
+                    self.first_swing[i]  = False
                 self.contact[i] = False
                 self.first_stand[i] = True
                 self.phase[i] = (self.current_phi - self.lift_off[i])*self.time_factor#in time (second)
@@ -100,12 +107,10 @@ class contact_schedule:
                 if self.first_stand[i] :
                     #do some thing
                     #1. get the next foothold
-                    self.next_foot[i] = foot[i]+np.array([0.1,0.0,0.0])
-                    #2. get the coefficient of the swing trajectory 
-                    self.swing_coeff[i] = traj_2seg_spline(foot[i],self.next_foot[i],self.swing_phase*self.time_factor*0.5)
                     #plan
                     self.first_stand[i]  = False
-                    pass
+                self.first_swing[i] = True
+                self.next_foot[i] = np.array([hip[i][0]+0.04*self.stance_phase*self.time_factor/2.0,hip[i][1]+0.04*self.stance_phase*self.time_factor/2.0,foot[i][2]])
                 self.phase[i] = (self.time_factor-self.current_phi+self.lift_off[i])*self.time_factor \
                     if self.current_phi > self.lift_off[i] else (self.lift_off[i]-self.current_phi)*self.time_factor
 
