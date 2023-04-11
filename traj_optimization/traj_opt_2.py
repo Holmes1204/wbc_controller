@@ -16,8 +16,8 @@ dp_e = np.array([0,0,0])
 ddp_e = np.array([0,0,0])
 
 T = 1
-alpha=1e-8
-def Acc(T):
+
+def Acc(T,alpha=1e-8):
     return np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
                      [40*pow(T,6),144/5*pow(T,5),18*pow(T,4),8*pow(T,3),0,0],
                      [120.0/5.0*pow(T,5),18*pow(T,4),12*pow(T,3),6*pow(T,2),0,0],
@@ -82,7 +82,6 @@ def pt1(p_s,dp_s,ddp_s,p_m,dp_m,ddp_m,p_e,dp_e,ddp_e):
     Aeq = np.vstack([nt(0.),dnt(0.),ddnt(0.)])
     beq = np.array([1,1,0],dtype=np.float64)
     xf, f, xu, iters, lagr, iact = solve_qp(G,h,Aeq.T,beq,3)
-    
     return xf
 
 #because of the chance of requirement we can set the velocities of this
@@ -93,19 +92,34 @@ def ddnt(t):
     return np.array([[20*pow(t,3),12*pow(t,2),6*t,2,0,0]]) 
 def dnt(t):
     return np.array([[5*pow(t,4),4*pow(t,3),3*pow(t,2),2*t,1,0]]) 
-t = 0.5
-p = np.array([1.])
-dp = np.array([1.])
-ddp = np.array([1.])
-G = Acc(1)+nt(t).T@nt(t)+dnt(t).T@dnt(t)+ddnt(t).T@ddnt(t)+1e-5*np.eye(6)
+T = 0.25
+t = 0.2
+p = np.array([0.25*t*t])
+dp = np.array([0.5*t])
+ddp = np.array([0.5])
+G = nt(t).T@nt(t)+dnt(t).T@dnt(t)+ddnt(t).T@ddnt(t)+1e-9*Acc(T)#+1e-9*np.eye(6)
 h = nt(t).T@p+dnt(t).T@dp + ddnt(t).T@ddp
 Aeq = np.vstack([nt(0.),dnt(0.),ddnt(0.)])
 beq = np.array([0,0,0],dtype=np.float64)
 xf, f, xu, iters, lagr, iact = solve_qp(G,h,Aeq.T,beq,3)
 # xf, f, xu, iters, lagr, iact = solve_qp(G,h)
+print(p,dp,ddp)
 print(nt(t)@xf,dnt(t)@xf,ddnt(t)@xf)
-t = 1.0
-print(nt(t)@xf,dnt(t)@xf,ddnt(t)@xf)
+print(nt(T)@xf,dnt(T)@xf,ddnt(T)@xf)
+N =  100
+time = np.linspace(0,T,N)
+traj = np.zeros(N)
+vel = np.zeros(N)
+acc = np.zeros(N)
+for i in range(len(time)):
+    traj[i] = nt(time[i])@xf
+    vel[i] = dnt(time[i])@xf
+    acc[i] = ddnt(time[i])@xf
+plt.plot(time,traj,label='traj')
+plt.plot(time,vel,label='vel')
+plt.plot(time,acc,label='acc')
+plt.legend()
+plt.show()
 
 # ax = plt.figure().add_subplot(projection='3d')
 
@@ -140,8 +154,19 @@ print(nt(t)@xf,dnt(t)@xf,ddnt(t)@xf)
 # ax.quiver(x[100], y[100], z[100], u[100], v[100], w[100], length=0.2, normalize=True,color='black')
 # ax.quiver(x[-1], y[-1], z[-1], u[-1], v[-1], w[-1], length=0.2, normalize=True,color='black')
 # ax.legend()
-
 # plt.show()
 
+n = 2
+duration = [1,1]
 
-#yici
+
+def diagm(matlist: list):
+    mat  = None
+    for it in matlist :
+        if mat is None:
+            mat = it
+        else:
+            mat = np.block([[mat,np.zeros((mat.shape[0],it.shape[1]))],
+                            [np.zeros((it.shape[0],mat.shape[1])),it]])
+    return mat
+#n

@@ -1,107 +1,117 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
-from numpy.linalg import matrix_rank as rank
-from numpy.linalg import inv
+from numpy.linalg import matrix_rank as rank,inv
+n = 2 #number of segments
+d = 1 #number of coordinates
+duration = [[1,1],
+            [1,1]]#duration of each spline
+# tot_t = sum(duration)#total horizon
+dt = 0.01 #in seconds sample time
 
-p_s = np.array([0,0,0])
-dp_s = np.array([0,0,0])
-ddp_s = np.array([0,0,0])
+def diagm(matlist: list,rcol = 0):
+    mat  = None
+    for it in matlist :
+        if mat is None:
+            mat = it
+        else:
+            mat = np.block([[mat,np.zeros((mat.shape[0],it.shape[1]-rcol))],
+                            [np.zeros((it.shape[0],mat.shape[1]-rcol)),it]])
+    return mat
 
-p_m = np.array([1,1,1])
-dp_m = np.array([1,1,0])
-ddp_m = np.array([0,0,0])
+def Acc(T,alpha=1e-8):
+    return np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
+                     [40*pow(T,6),144/5*pow(T,5),18*pow(T,4),8*pow(T,3),0,0],
+                     [120.0/5.0*pow(T,5),18*pow(T,4),12*pow(T,3),6*pow(T,2),0,0],
+                     [10*pow(T,4),8*pow(T,3),6*pow(T,2),4*T,0,0],
+                     [0,0,0,0,alpha,0],
+                     [0,0,0,0,0,alpha]])
 
-p_e = np.array([2,2,0])
-dp_e = np.array([0,0,0])
-ddp_e = np.array([0,0,0])
+def nt(t):
+    return np.array([[pow(t,5),pow(t,4),pow(t,3),pow(t,2),t,1]]) 
 
-T = 1
-n = 2
+def dnt(t):
+    return np.array([[5*pow(t,4),4*pow(t,3),3*pow(t,2),2*t,1,0]]) 
 
-# get the reference 
-p = 0
-v = 1
-a = 1
+def ddnt(t):
+    return np.array([[20*pow(t,3),12*pow(t,2),6*t,2,0,0]]) 
 
+t = 1
+Tmat = np.zeros((0,0))
+dTmat = np.zeros((0,0))
+ddTmat = np.zeros((0,0))
+Accmat = np.zeros((0,0))
+cnst = np.zeros((0,0))#smooth constraints
+dcnst = np.zeros((0,0))#smooth constraints
+ddcnst = np.zeros((0,0))#smooth constraints
+bcnst = np.zeros(0)
+dbcnst = np.zeros(0)
+ddbcnst= np.zeros(0)
 
-def mnt(t):
-    def nt(t):
-        return np.array([pow(t,5),pow(t,4),pow(t,3),pow(t,2),t,1]) 
-    return np.block([
-        [nt(t),np.zeros(6),np.zeros(6)],
-        [np.zeros(6),nt(t),np.zeros(6)],
-        [np.zeros(6),np.zeros(6),nt(t)]])
+pr =np.zeros(0)
 
-
-
-def mdnt(t):
-    def dnt(t):
-        return np.array([5*pow(t,4),4*pow(t,3),3*pow(t,2),2*t,1,0]) 
-    return np.block([
-        [dnt(t),np.zeros(6),np.zeros(6)],
-        [np.zeros(6),dnt(t),np.zeros(6)],
-        [np.zeros(6),np.zeros(6),dnt(t)]])
-
-
-def mddnt(t):
-    def ddnt(t):
-        return np.array([20*pow(t,3),12*pow(t,2),6*t,2,0,0]) 
-    return np.block([
-        [ddnt(t),np.zeros(6),np.zeros(6)],
-        [np.zeros(6),ddnt(t),np.zeros(6)],
-        [np.zeros(6),np.zeros(6),ddnt(t)]])
-
-
-
-def pt():
-    A = np.vstack([mnt(0),mdnt(0),mddnt(0),mnt(T),mdnt(T),mddnt(T)])
-    A_ = np.block([[A,np.zeros(A.shape)],[np.zeros(A.shape),A]])
-    b = np.hstack([p_s,dp_s,ddp_s,p_m,dp_m,ddp_m,p_m,dp_m,ddp_m,p_e,dp_e,ddp_e])
-    G = A_.T@A_
-    h = A_.T@b
-    xf, f, xu, iters, lagr, iact = solve_qp(G,h)
-    return xf
+stp = np.array([0,0,0])
+dstp = np.array([0,0,0])
+ddstp = np.array([0,0,0])
 
 
+def path(xy,t):
+    if xy == 0 :
+        return 0.5*t
+
+#how to count the time
+for i in range(n):
+    #end time
+    if i == 0 :
+        for j in range(d):
+            cnst = diagm([cnst,nt(0)])
+            dcnst = diagm([dcnst,dnt(0)])
+            ddcnst = diagm([ddcnst,ddnt(0)])
+            bcnst = np.hstack([bcnst,stp[j]])
+            dbcnst = np.hstack([dbcnst,dstp[j]])
+            ddbcnst = np.hstack([ddbcnst,ddstp[j]])
+    for j in range(d):
+        Tmat = diagm([Tmat,nt(t)])
+        dTmat = diagm([dTmat,dnt(t)])
+        ddTmat = diagm([ddTmat,ddnt(t)])
+        pr = np.hstack([pr,path(j,t)])
+        Accmat = diagm([Accmat,Acc(duration[i][j])])
+        if n!=1 and i+1<n:
+            cnst = diagm([cnst,np.hstack([nt(duration[i][j]),np.zeros((1,6*(d-1))),nt(0)])],6*d)
+            dcnst = diagm([dcnst,np.hstack([dnt(duration[i][j]),np.zeros((1,6*(d-1))),dnt(0)])],6*d)
+            ddcnst = diagm([ddcnst,np.hstack([ddnt(duration[i][j]),np.zeros((1,6*(d-1))),ddnt(0)])],6*d)
+            bcnst = np.hstack([bcnst,0.])
+            dbcnst = np.hstack([dbcnst,0.])
+            ddbcnst = np.hstack([ddbcnst,0.])
+        
+
+    # if i+1 == n:
+    #     for j in range(d):
+    #         cnst = diagm([cnst,nt(t)])
+    #         dcnst = diagm([dcnst,dnt(t)])
+    #         ddcnst = diagm([ddcnst,ddnt(t)])
+G = Tmat.T@Tmat+1e-9*np.eye(n*d*6)
+h = Tmat.T@pr
+Aeq = np.vstack([cnst,dcnst,ddcnst])
+beq = np.hstack([bcnst,dbcnst,ddbcnst])
+xf, f, xu, iters, lagr, iact = solve_qp(G,h)
 
 
+N =  100
+traj = np.zeros(N*n*d)
+vel = np.zeros(N*n*d)
+acc = np.zeros(N*n*d)
+tot_time = np.linspace(0,sum(duration[:][0]),N*n*d)
 
+for k in range(n):
+    time = np.linspace(0,duration[k][0],N)
+    for i in range(len(time)):
+        traj[i+N*k] = nt(time[i])@xf[k*d*6:(k+1)*d*6]
+        vel[i+N*k] = dnt(time[i])@xf[k*d*6:(k+1)*d*6]
+        acc[i+N*k] = ddnt(time[i])@xf[k*d*6:(k+1)*d*6]
 
-
-#because of the chance of requirement we can set the velocities of this
-#fifth order hermite spline
-coeff = pt()
-ax = plt.figure().add_subplot(projection='3d')
-
-x = np.zeros(200)
-y = np.zeros(200)
-z = np.zeros(200)
-traj = np.zeros((3,200))
-vel  = np.zeros((3,200))
-# Prepare arrays x, y, z
-t = np.linspace(0,1,100)
-
-for i in range(200):
-    if(i<100):
-        traj[:,i] = mnt(t[i])@coeff[:18]
-        vel[:,i] = mdnt(t[i])@coeff[:18]
-    else:
-        traj[:,i] = mnt(t[i%100])@coeff[18:]
-        vel[:,i] = mdnt(t[i%100])@coeff[18:]
-
-x = traj[0,:]
-y = traj[1,:]
-z = traj[2,:]
-
-u = vel[0,:]
-v = vel[1,:]
-w = vel[2,:]
-
-ax.plot(x, y, z, label='parametric curve')
-ax.quiver(x[0], y[0], z[0], u[0], v[0], w[0], length=0.2, normalize=True,color='black')
-ax.quiver(x[100], y[100], z[100], u[100], v[100], w[100], length=0.2, normalize=True,color='black')
-ax.quiver(x[-1], y[-1], z[-1], u[-1], v[-1], w[-1], length=0.2, normalize=True,color='black')
-ax.legend()
-
+plt.plot(tot_time,traj,label='traj')
+plt.plot(tot_time,vel,label='vel')
+plt.plot(tot_time,acc,label='acc')
+plt.legend()
 plt.show()
