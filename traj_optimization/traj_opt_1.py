@@ -77,9 +77,9 @@ for i in range(n):
         pr = np.hstack([pr,path(j,t)])
         Accmat = diagm([Accmat,Acc(duration[i][j])])
         if n!=1 and i+1<n:
-            cnst = diagm([cnst,np.hstack([nt(duration[i][j]),np.zeros((1,6*(d-1))),nt(0)])],6*d)
-            dcnst = diagm([dcnst,np.hstack([dnt(duration[i][j]),np.zeros((1,6*(d-1))),dnt(0)])],6*d)
-            ddcnst = diagm([ddcnst,np.hstack([ddnt(duration[i][j]),np.zeros((1,6*(d-1))),ddnt(0)])],6*d)
+            cnst = diagm([cnst,np.hstack([nt(duration[i][j]),np.zeros((1,6*(d-1))),-nt(0)])],6*d)
+            dcnst = diagm([dcnst,np.hstack([dnt(duration[i][j]),np.zeros((1,6*(d-1))),-dnt(0)])],6*d)
+            ddcnst = diagm([ddcnst,np.hstack([ddnt(duration[i][j]),np.zeros((1,6*(d-1))),-ddnt(0)])],6*d)
             bcnst = np.hstack([bcnst,0.])
             dbcnst = np.hstack([dbcnst,0.])
             ddbcnst = np.hstack([ddbcnst,0.])
@@ -90,14 +90,14 @@ for i in range(n):
     #         cnst = diagm([cnst,nt(t)])
     #         dcnst = diagm([dcnst,dnt(t)])
     #         ddcnst = diagm([ddcnst,ddnt(t)])
-G = Tmat.T@Tmat+1e-9*np.eye(n*d*6)
+G = Tmat.T@Tmat+1e-9*np.eye(n*d*6)+Accmat
 h = Tmat.T@pr
 Aeq = np.vstack([cnst,dcnst,ddcnst])
 beq = np.hstack([bcnst,dbcnst,ddbcnst])
-xf, f, xu, iters, lagr, iact = solve_qp(G,h)
+xf, f, xu, iters, lagr, iact = solve_qp(G,h,Aeq.T,beq,beq.shape[0])
 
 
-N =  100
+N =  1000
 traj = np.zeros(N*n*d)
 vel = np.zeros(N*n*d)
 acc = np.zeros(N*n*d)
