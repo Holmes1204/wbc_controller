@@ -60,6 +60,8 @@ def path(xy,t):
         return 0.5*t
 
 #how to count the time
+#generate the hessian and the gradient and constraints of the proble
+
 for i in range(n):
     #end time
     if i == 0 :
@@ -90,6 +92,7 @@ for i in range(n):
     #         cnst = diagm([cnst,nt(t)])
     #         dcnst = diagm([dcnst,dnt(t)])
     #         ddcnst = diagm([ddcnst,ddnt(t)])
+
 G = Tmat.T@Tmat+1e-9*np.eye(n*d*6)+Accmat
 h = Tmat.T@pr
 Aeq = np.vstack([cnst,dcnst,ddcnst])
@@ -115,3 +118,38 @@ plt.plot(tot_time,vel,label='vel')
 plt.plot(tot_time,acc,label='acc')
 plt.legend()
 plt.show()
+
+#for a complicated QP  optimization problem we just take care the hessian matrix gradient matrix
+def motion_optimzation():
+    """ for some problem provide the solutions"""    
+    for i in range(n):
+        #end time
+        #for the sampling of the line, we have some others formulations
+        if i == 0 :
+            for j in range(d):
+                cnst = diagm([cnst,nt(0)])
+                dcnst = diagm([dcnst,dnt(0)])
+                ddcnst = diagm([ddcnst,ddnt(0)])
+                bcnst = np.hstack([bcnst,stp[j]])
+                dbcnst = np.hstack([dbcnst,dstp[j]])
+                ddbcnst = np.hstack([ddbcnst,ddstp[j]])
+        for j in range(d):
+            Tmat = diagm([Tmat,nt(t)])
+            dTmat = diagm([dTmat,dnt(t)])
+            ddTmat = diagm([ddTmat,ddnt(t)])
+            pr = np.hstack([pr,path(j,t)])
+            Accmat = diagm([Accmat,Acc(duration[i][j])])
+            if n!=1 and i+1<n:
+                cnst = diagm([cnst,np.hstack([nt(duration[i][j]),np.zeros((1,6*(d-1))),-nt(0)])],6*d)
+                dcnst = diagm([dcnst,np.hstack([dnt(duration[i][j]),np.zeros((1,6*(d-1))),-dnt(0)])],6*d)
+                ddcnst = diagm([ddcnst,np.hstack([ddnt(duration[i][j]),np.zeros((1,6*(d-1))),-ddnt(0)])],6*d)
+                bcnst = np.hstack([bcnst,0.])
+                dbcnst = np.hstack([dbcnst,0.])
+                ddbcnst = np.hstack([ddbcnst,0.])
+        if i+1 == n:
+            for j in range(d):
+                cnst = diagm([cnst,nt(t)])
+                dcnst = diagm([dcnst,dnt(t)])
+                ddcnst = diagm([ddcnst,ddnt(t)])
+
+    return 

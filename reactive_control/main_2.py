@@ -5,12 +5,11 @@ import matplotlib.pyplot as plt
 import time
 from math import sqrt,sin,pi
 import sys
-sys.path.append("/home/holmes/Code/orc")
+sys.path.append("/home/holmes/code/graduation_simulation_code")
 import utils.plot_utils as plut
 from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator
 import main_2_conf as conf
-from example_robot_data.robots_loader import load
 import pinocchio as pin
 from contact_schedule import contact_schedule
 from solutions.WBC_HO import task,WBC_HO
@@ -18,6 +17,7 @@ from solutions.WBC_HO import task,WBC_HO
 print("".center(conf.LINE_WIDTH,'#'))       
 print(" Quadrupedal Robot".center(conf.LINE_WIDTH, '#'))
 print("".center(conf.LINE_WIDTH,'#'), '\n')
+
 PLOT_EE_POS = 1
 PLOT_BODY_POS = 1
 PLOT_DOG_JOINT_POS = 1
@@ -25,7 +25,7 @@ PLOT_ARM_JOINT_POS = 1
 PLOT_DOG_TORQUES = 1
 PLOT_ARM_TORQUES = 1
 
-rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("a1_description/urdf/a1.urdf", ".",pin.JointModelFreeFlyer())
+rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("../a1_description/urdf/a1.urdf", "../",pin.JointModelFreeFlyer())
 
 robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)
 simu = RobotSimulator(conf, robot)
