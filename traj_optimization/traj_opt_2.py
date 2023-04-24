@@ -160,13 +160,13 @@ n = 2
 duration = [1,1]
 
 
-def diagm(matlist: list):
+def diagm(matlist: list,rcol = 0):
     mat  = None
     for it in matlist :
         if mat is None:
             mat = it
         else:
-            mat = np.block([[mat,np.zeros((mat.shape[0],it.shape[1]))],
-                            [np.zeros((it.shape[0],mat.shape[1])),it]])
+            mat = np.block([[mat,np.zeros((mat.shape[0],it.shape[1]-rcol))],
+                            [np.zeros((it.shape[0],mat.shape[1]-rcol)),it]])
     return mat
 #n

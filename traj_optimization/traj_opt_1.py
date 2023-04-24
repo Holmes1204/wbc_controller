@@ -2,12 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
-n = 2 #number of segments
-d = 1 #number of coordinates
-duration = [[1,1],
-            [1,1]]#duration of each spline
-# tot_t = sum(duration)#total horizon
-dt = 0.01 #in seconds sample time
+
 
 def diagm(matlist: list,rcol = 0):
     mat  = None
@@ -36,6 +31,12 @@ def dnt(t):
 def ddnt(t):
     return np.array([[20*pow(t,3),12*pow(t,2),6*t,2,0,0]]) 
 
+n = 2 #number of segments
+d = 1 #number of coordinates
+duration = [[1,1],
+            [1,1]]#duration of each spline
+# tot_t = sum(duration)#total horizon
+dt = 0.01 #in seconds sample time
 t = 1
 Tmat = np.zeros((0,0))
 dTmat = np.zeros((0,0))
@@ -61,6 +62,7 @@ def path(xy,t):
 
 #how to count the time
 #generate the hessian and the gradient and constraints of the proble
+
 
 for i in range(n):
     #end time
@@ -153,3 +155,5 @@ def motion_optimzation():
                 ddcnst = diagm([ddcnst,ddnt(t)])
 
     return 
+
+

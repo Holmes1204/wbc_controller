@@ -87,6 +87,7 @@ class WBC_HO:
                 fs_ = np.hstack([fs_,f_])
 
             xf, func, xu, iters, lagr, iact = solve_qp(H, c,-Dhat.T,-fhat)
+            #the euquation constraints is in the cost function, why we can do this is that solve the first min question equavietnal  to the equation function and then add to the constraints.
             x = x + xf[:n]
             v = xf[n:]
             if va_ is None:

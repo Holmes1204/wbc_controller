@@ -6,6 +6,9 @@ import math
 import gepetto.corbaserver
 import time
 import subprocess
+import rospy
+import tf
+from geometry_msgs.msg import TransformStamped
 
 class ContactPoint:
     ''' A point on the robot surface that can make contact with surfaces.
@@ -157,7 +160,7 @@ class RobotSimulator:
 
         # for gepetto viewer
         self.gui = None
-        if(conf.use_viewer):
+        if(conf.use_viewer==1):
             try:
                 prompt = subprocess.getstatusoutput("ps aux |grep 'gepetto-gui'|grep -v 'grep'|wc -l")
                 if int(prompt[1]) == 0:
@@ -175,9 +178,8 @@ class RobotSimulator:
             self.robot.loadViewerModel()
             self.robot.displayCollisions(False)
             self.robot.displayVisuals(True)
-            self.robot.display(self.q)            
-            
-#            LOCOSIM_PATH = "/home/adelprete/devel/src/locosim"
+            self.robot.display(self.q)   
+            #            LOCOSIM_PATH = "/home/adelprete/devel/src/locosim"
 #            success = self.gui.addMesh("world/pinocchio/tavolo", LOCOSIM_PATH+"/ros_impedance_controller/worlds/models/tavolo/mesh/tavolo.stl")
 #            if(success):
 #                print("Table mesh added with success!")
@@ -185,7 +187,11 @@ class RobotSimulator:
 #            try:  
 #                self.gui.setCameraTransform("python-pinocchio", conf.CAMERA_TRANSFORM)
 #            except:
-#                self.gui.setCameraTransform(0, conf.CAMERA_TRANSFORM)       
+#                self.gui.setCameraTransform(0, conf.CAMERA_TRANSFORM)            
+        elif(conf.use_viewer==2):
+            rospy.init_node('simulation_node')
+            self.tf_broadcaster = tf.TransformBroadcaster()
+    
             
     def add_frame_axes(self, frame_name, color=(1.,0,0,0.5), radius=0.02, length=0.05):
         self.frame_axes += [frame_name]
@@ -357,13 +363,14 @@ class RobotSimulator:
             self.q, self.v = self.step(u, dt/ndt)
             tau_c_avg += self.tau_c
         self.tau_c = tau_c_avg / ndt
-
         if(self.conf.use_viewer):
             self.display_counter -= dt
             if self.display_counter <= 0.0:
-                self.robot.display(self.q)
+                if self.conf.use_viewer ==1:
+                    self.robot.display(self.q)  
+                elif self.conf.use_viewer ==2:
+                    self.displayROS()
                 self.display_counter = self.DISPLAY_T
-
         return self.q, self.v, self.f
         
     def display(self, q):
@@ -373,7 +380,6 @@ class RobotSimulator:
                 H = self.robot.framePlacement(q, frame_id)
                 self.robot.applyConfiguration("world/axes-"+frame, pin.SE3ToXYZQUATtuple(H))
 #                self.gui.applyConfiguration("world/axes-"+frame, pin.SE3ToXYZQUATtuple(H))
-                
             self.robot.display(q)
             
     def display_motion(self, Q, dt, slow_down_factor=1):
@@ -383,3 +389,33 @@ class RobotSimulator:
             time_spent = time.time() - time_start
             if(time_spent < slow_down_factor*dt):
                 time.sleep(slow_down_factor*dt-time_spent)
+
+    def displayROS(self):
+        if not rospy.is_shutdown():
+        # Update the timestamp of the transformation
+            time = rospy.Time.now()
+            for i in range(len(self.robot.model.frames)):
+                frame_name = self.robot.model.frames[i].name
+                frame_id = self.robot.model.getFrameId(frame_name)
+                # H = self.robot.framePlacement(simu.q,frame_id)
+                H = self.robot.data.oMf[frame_id]
+                p = H.translation
+                quat = pin.Quaternion(H.rotation)
+                transform = TransformStamped()
+                transform.header.stamp = time
+                transform.header.frame_id = 'map'  # parent frame
+                transform.child_frame_id = frame_name  # child frame
+                transform.transform.translation.x = p[0]
+                transform.transform.translation.y = p[1]
+                transform.transform.translation.z = p[2]
+                # transform.transform.translation.x = 1.0  # translation along x-axis
+                transform.transform.rotation.w = quat.w  # rotation as quaternion (identity)
+                transform.transform.rotation.x = quat.x
+                transform.transform.rotation.y = quat.y
+                transform.transform.rotation.z = quat.z
+                # print(p)
+                # print(quat)
+                # print(transform)
+                # Publish the transformation
+                self.tf_broadcaster.sendTransformMessage(transform)
+        return

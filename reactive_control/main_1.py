@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import time
 from math import sqrt
 import sys
-sys.path.append("/home/holmes/Code/orc")
+sys.path.append("/home/holmes/code/graduation_simulation_code")
 import utils.plot_utils as plut
 from utils.robot_loaders import loadUR
 from utils.robot_wrapper import RobotWrapper
@@ -14,7 +14,7 @@ import main_1_conf as conf
 import solutions.main_1_solution as solution
 from example_robot_data.robots_loader import load
 import pinocchio as pin
-from contact_schedule import contact_schedule
+from local_planner import local_planner
 from solutions.WBC_HO import task,WBC_HO
 
 
@@ -22,18 +22,17 @@ print("".center(conf.LINE_WIDTH,'#'))
 print(" Quadrupedal Robot".center(conf.LINE_WIDTH, '#'))
 print("".center(conf.LINE_WIDTH,'#'), '\n')
 
-PLOT_JOINT_POS = 1
-PLOT_JOINT_VEL = 0
-PLOT_JOINT_ACC = 1
-PLOT_TORQUES = 1
-PLOT_EE_POS = 0
-# PLOT_EE_VEL = 1
+PLOT_EE_POS = 1
+PLOT_BODY_POS = 1
+PLOT_DOG_JOINT_POS = 0
+PLOT_DOG_TORQUES = 0
+
 
 #load('ur5')
-r = load('a1')
-robot = RobotWrapper(r.model, r.collision_model, r.visual_model)
+rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("../a1_description/urdf/a1.urdf", "../",pin.JointModelFreeFlyer())
+robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)
 simu = RobotSimulator(conf, robot)
-contact_schedul  = contact_schedule()
+local_plan  = local_planner()
 simu.add_contact_surface("ground",conf.ground_pos,conf.ground_normal,
                          conf.ground_Kp,conf.ground_Kd,conf.ground_mu)
 [simu.add_candidate_contact_point(foot) for foot in conf.Foot_frame]
@@ -54,6 +53,9 @@ x_ref   = np.empty((nx,  N))*nan        # end-effector reference position
 dx_ref  = np.empty((ndx, N))*nan        # end-effector reference velocity
 ddx_ref = np.empty((ndx, N))*nan        # end-effector reference acceleration
 ddx_des = np.empty((ndx, N))*nan        # end-effector desired acceleration
+
+fx   = np.empty((nx,  N))*nan        # end-effector reference position
+fx_des = np.empty((nx,  N))*nan        # end-effector reference position
 
 two_pi_f             = 2*np.pi*conf.freq   # frequency (time 2 PI)
 two_pi_f_amp         = two_pi_f * conf.amp
@@ -132,8 +134,7 @@ for ss in range(0, N):#ss: simualtion step
         v_f[j,:] = v_frame.linear
         J_f[3*j:3*j+3,:] = J
         dJdq_f[3*j:3*j+3] = dJdq
-
-        # if contact_schedul.in_contact(j):
+        # if local_plan.in_contact(j):
         #     J_st[3*j:3*j+3,:] = J
         #     dJdq_st[3*j:3*j+3] = dJdq
         # else:
@@ -148,7 +149,6 @@ for ss in range(0, N):#ss: simualtion step
         p_h[j,:] = H.translation+np.array([0.0,(-1)**j*0.084,0.0])
         v_h[j,:] = v_frame.linear
 
-
     ##control body pos and orientation
     J_bp = np.zeros((3,18))
     J_bR = np.zeros((3,18))
@@ -158,15 +158,15 @@ for ss in range(0, N):#ss: simualtion step
     H = robot.framePlacement(q[:,ss], frame_id, False)
     x_bp= H.translation # take the 3d position of the end-effector
     x_bR = H.rotation
-    x_bp_des = np.array([x_bp[0],0,0.32])
+    x_bp_des = np.array([x_bp[0],x_bp[1],0.32])
     x_bR_des = np.eye(3)
-    v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
-    dx_bp = v_frame.linear # take linear part of 6d velocity
-    dx_bR = v_frame.angular
+    v_b = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
+    dx_bp = v_b.linear # take linear part of 6d velocity
+    dx_bR = v_b.angular
     dx_bp_des = np.array([0.04,0.04,0])
     dx_bR_des = np.array([0.0,0.0,0.0])
     #here is contact
-    n_contact = contact_schedul.contact_num()
+    n_contact = local_plan.contact_num()
     J_st = np.zeros((3*n_contact,18))
     dJdq_st = np.zeros(3*n_contact)
     J_sw = np.zeros((3*(4-n_contact),18))
@@ -214,7 +214,7 @@ for ss in range(0, N):#ss: simualtion step
         B_st = np.zeros((n_contact*B_.shape[0],n_contact*B_.shape[1]))
         beta_st = np.zeros(n_contact*beta_.shape[0])
         for j in range(len(conf.Foot_frame)) :
-            if contact_schedul.in_contact(j):
+            if local_plan.in_contact(j):
                 J_st[3*j_st:3*j_st+3,:] = J_f[3*j:3*j+3,:]
                 dJdq_st[3*j_st:3*j_st+3] = dJdq_f[3*j:3*j+3]
                 #in contact must have the force constrints,FL,FR,RL,RR
@@ -227,11 +227,17 @@ for ss in range(0, N):#ss: simualtion step
                 dJdq_sw[3*j_sw:3*j_sw+3] =  dJdq_f[3*j:3*j+3]
                 p_sw[3*j_sw:3*j_sw+3]=p_f[j]
                 dp_sw[3*j_sw:3*j_sw+3] = v_f[j]
-                p_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_pos(j)
-                dp_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_vel(j)
-                ddp_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_acc(j)
+                p_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_pos(j)
+                dp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_vel(j)
+                ddp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_acc(j)
                 j_sw +=1
         #some tricky copied 
+
+        fx[:,ss] = p_f[0,:]
+        if local_plan.in_contact(0):
+           fx_des[:,ss] = p_f[0,:]
+        else:
+           fx_des[:,ss] = local_plan.swing_foot_traj_pos(0)
         #task1
         Q,R = np.linalg.qr(J_st.T,'complete')
         R = R[:R.shape[1],:]
@@ -250,7 +256,7 @@ for ss in range(0, N):#ss: simualtion step
         f2 = beta_st - B_st@inv(R)@Q_c.T@h
 
         #task4
-        Kp_sw = 10
+        Kp_sw = 1200
         Kd_sw = 2*sqrt(Kp_sw)
         A4 = np.hstack([J_sw,np.zeros((3*(4-n_contact),12))])
         b4 = -dJdq_sw+Kp_sw*(p_sw_des-p_sw)+Kd_sw*(dp_sw_des-dp_sw)+ddp_sw_des
@@ -323,69 +329,72 @@ for ss in range(0, N):#ss: simualtion step
     tau[:,ss] = np.hstack([np.zeros(6),out[18:]])
     # send joint torques to simulator
     simu.simulate(tau[:,ss], conf.dt, conf.ndt)
-    contact_schedul.update(conf.dt,p_f,p_h,v_frame.linear)
+    local_plan.update(conf.dt,p_f,p_h,v_b.linear)
     # print(tau[:,ss])
     if ss%PRINT_N == 0:
         print("Time %.3f"%(t))
     t += conf.dt
     time_spent = time.time() - time_start
 
-    if(conf.simulate_real_time and time_spent < conf.dt): 
-        time.sleep(conf.dt-time_spent)
 
+LABEL={0:'x',1:'y',2:'z'}
 # PLOT STUFF
 time = np.arange(0.0, N*conf.dt, conf.dt)
 if(PLOT_EE_POS):    
-    (f, ax) = plut.create_empty_figure(nx)
-    ax = ax.reshape(nx)
-    for ss in range(nx):
-        ax[ss].plot(time, x[ss,:], label='x')
-        ax[ss].plot(time, x_ref[ss,:], '--', label='x ref')
-        ax[ss].set_xlabel('Time [s]')
-        ax[ss].set_ylabel(r'x_'+str(ss)+' [m]')
+    (f, ax) = plut.create_empty_figure(2)
+    title = "Foot"
+    f.suptitle(title, fontsize=16)
+    f.canvas.manager.set_window_title(title)
+    ax = ax.reshape(2)
+    # for i in range(2):
+    ax[0].plot(fx[0,:], fx[2,:])
+    ax[0].plot(fx_des[0,:], fx_des[2,:])
+    ax[1].plot(fx[1,:], fx[2,:])
+    ax[1].plot(fx_des[1,:], fx_des[2,:])
     leg = ax[0].legend()
     leg.get_frame().set_alpha(0.5)
     
-if(PLOT_JOINT_POS):    
-    (f, ax) = plut.create_empty_figure(int(robot.nv/2),2)
-    ax = ax.reshape(robot.nv)
-    for ss in range(robot.nv):
-        ax[ss].plot(time, q[ss,:-1], label='q')
-        ax[ss].set_xlabel('Time [s]')
-        ax[ss].set_ylabel(r'$q_'+str(ss)+'$ [rad]')
+if(PLOT_BODY_POS):    
+    (f, ax) = plut.create_empty_figure(3)
+    ax = ax.reshape(3)
+    title = "BODY_POS"
+    f.suptitle(title, fontsize=16)
+    f.canvas.manager.set_window_title(title)
+    for i in range(3):
+        ax[i].plot(time, q[i,:-1], label='body_pos')
+        ax[i].set_xlabel('Time [s]')
+        ax[i].set_ylabel(r''+LABEL[i]+' [m]')
     leg = ax[0].legend()
     leg.get_frame().set_alpha(0.5)
+
+
+if(PLOT_DOG_JOINT_POS):    
+    (f, ax) = plut.create_empty_figure(6,2)
+    ax = ax.reshape(12)
+    title = "DOG_JOINT_POS"
+    f.suptitle(title, fontsize=16)
+    f.canvas.manager.set_window_title(title)
+    for i in range(12):
+        ax[i].plot(time, q[7+i,:-1], label='q')
+        ax[i].set_xlabel('Time [s]')
+        ax[i].set_ylabel(r'$q_{'+str(i)+'}$ [rad]')
+    leg = ax[0].legend()
+    leg.get_frame().set_alpha(0.5)
+
         
-if(PLOT_JOINT_VEL):    
-    (f, ax) = plut.create_empty_figure(int(robot.nv/2),2)
-    ax = ax.reshape(robot.nv)
-    for ss in range(robot.nv):
-        ax[ss].plot(time, v[ss,:-1], label='v')
-#        ax[ss].plot(time, v_ref[ss,:], '--', label='v ref')
-        ax[ss].set_xlabel('Time [s]')
-        ax[ss].set_ylabel(r'v_'+str(ss)+' [rad/s]')
+
+if(PLOT_DOG_TORQUES):    
+    (f, ax) = plut.create_empty_figure(6,2)
+    ax = ax.reshape(12)
+    title = "DOG_TORQUES"
+    f.suptitle(title, fontsize=16)
+    f.canvas.manager.set_window_title(title)
+    for i in range(12):
+        ax[i].plot(time, tau[6+i,:], label=r'$\tau$ '+str(i))
+        ax[i].set_xlabel('Time [s]')
+        ax[i].set_ylabel(r'$\tau_{'+str(i)+'}$ [N/m]')
     leg = ax[0].legend()
     leg.get_frame().set_alpha(0.5)
-        
-if(PLOT_JOINT_ACC):    
-    (f, ax) = plut.create_empty_figure(int(robot.nv/2),2)
-    ax = ax.reshape(robot.nv)
-    for ss in range(robot.nv):
-        ax[ss].plot(time, dv[ss,:-1], label=r'$\dot{v}$')
-#        ax[ss].plot(time, dv_ref[ss,:], '--', label=r'$\dot{v}$ ref')
-        ax[ss].set_xlabel('Time [s]')
-        ax[ss].set_ylabel(r'$\dot{v}_'+str(ss)+'$ [rad/s^2]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
-   
-if(PLOT_TORQUES):    
-    (f, ax) = plut.create_empty_figure(int(robot.nv/2),2)
-    ax = ax.reshape(robot.nv)
-    for ss in range(robot.nv):
-        ax[ss].plot(time, tau[ss,:], label=r'$\tau$ '+str(ss))
-        ax[ss].set_xlabel('Time [s]')
-        ax[ss].set_ylabel('Torque [Nm]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
+
         
 plt.show()

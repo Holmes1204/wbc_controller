@@ -64,7 +64,7 @@ def traj_2seg_spline(p_s,p_e,T):
     return xf
 
 
-class contact_schedule:
+class local_planner:
     time_factor = 0.5 # the time of a period of motion
     stance_phase = 0.75# the phase of stance 
     swing_phase = 0.25# the time of swing 
@@ -105,12 +105,12 @@ class contact_schedule:
             else:
                 self.contact[i] = True
                 if self.first_stand[i] :
-                    #do some thing
+                    #do some thing        
                     #1. get the next foothold
                     #plan
                     self.first_stand[i]  = False
                 self.first_swing[i] = True
-                self.next_foot[i] = np.array([hip[i][0]+0.04*self.stance_phase*self.time_factor/2.0,hip[i][1]+0.04*self.stance_phase*self.time_factor/2.0,foot[i][2]])
+                self.next_foot[i] = np.array([hip[i][0]+v[0]*self.stance_phase*self.time_factor/2.0+0.02,hip[i][1]+v[1]*self.stance_phase*self.time_factor/2.0,foot[i][2]])
                 self.phase[i] = (self.time_factor-self.current_phi+self.lift_off[i])*self.time_factor \
                     if self.current_phi > self.lift_off[i] else (self.lift_off[i]-self.current_phi)*self.time_factor
 
@@ -146,6 +146,7 @@ class contact_schedule:
             return mddnt(self.phase[leg]%(self.swing_phase*self.time_factor*0.5))@self.swing_coeff[leg,18:]
         
 
+
     def print(self):
         n = self.contact_num()
         print(str(self.current_phi)+"\n",n,self.contact,self.phase)
@@ -155,7 +156,7 @@ class contact_schedule:
 
 
 if __name__ == "__main__":
-    contact = contact_schedule()
+    contact = local_planner()
     dt = 0.001
     foot = np.zeros((4,3))
     for i in range(1000):

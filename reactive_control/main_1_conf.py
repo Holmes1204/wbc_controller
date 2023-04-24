@@ -14,7 +14,7 @@ LINE_WIDTH = 60
 
 # q0 = np.array([0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3])# fixed body frame
 q0 = np.array([0.0,0.0,0.31836983483860026,0.0,0.0,0.0,1.0,0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3])# floating base
-T_SIMULATION = 5            # simulation time
+T_SIMULATION = 2            # simulation time
 dt = 0.0005                   # controller time step second control time
 ndt = 20                      # number of integration steps for each control loop dt/ndt is the real  simulation time
 
@@ -57,7 +57,7 @@ ground_mu = 0.5
 randomize_robot_model = 0
 model_variation = 30.0
 
-use_viewer = True
+use_viewer = 2#0 None, 1 Gepetto, 2 Rviz
 simulate_real_time = False          # flag specifying whether simulation should be real time or as fast as possible
 show_floor = False
 PRINT_T = 0.01                  # print some info every PRINT_T seconds

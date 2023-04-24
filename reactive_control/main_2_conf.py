@@ -22,6 +22,11 @@ RL_foot = 'RL_foot'
 RR_foot = 'RR_foot'    
 Foot_frame = [FL_foot,FR_foot,RL_foot,RR_foot]
 
+FL_hip = 'FL_hip'    
+FR_hip = 'FR_hip'    
+RL_hip = 'RL_hip'    
+RR_hip = 'RR_hip'  
+Hip_frame = [FL_hip,FR_hip,RL_hip,RR_hip]
 
 simulate_coulomb_friction = 0    # flag specifying whether coulomb friction is simulated
 simulation_type = 'timestepping' # either 'timestepping' or 'euler'
@@ -38,7 +43,7 @@ ground_mu = 0.5
 randomize_robot_model = 0
 model_variation = 30.0
 
-use_viewer = True
+use_viewer = 2#0 None,1 gepetto,2 ROS RVIZ
 simulate_real_time = False          # flag specifying whether simulation should be real time or as fast as possible
 show_floor = False
 PRINT_T = 0.01                  # print some info every PRINT_T seconds

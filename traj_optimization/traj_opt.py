@@ -55,7 +55,7 @@ def pt(p_s,dp_s,ddp_s,p_m,dp_m,ddp_m,p_e,dp_e,ddp_e):
     b = np.hstack([p_s,dp_s,ddp_s,p_m,dp_m,ddp_m,p_m,dp_m,ddp_m,p_e,dp_e,ddp_e])
     G = A_.T@A_
     h = A_.T@b
-    xf, f, xu, iters, lagr, iact = solve_qp(G,h)
+    xf, f, xu, iters, lagr, iact = solve_qp(G,h,None,None,None,None)
     return xf
 
 

@@ -11,7 +11,7 @@ from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator
 import main_2_conf as conf
 import pinocchio as pin
-from contact_schedule import contact_schedule
+from reactive_control.local_planner import local_planner 
 from solutions.WBC_HO import task,WBC_HO
 
 print("".center(conf.LINE_WIDTH,'#'))       
@@ -26,10 +26,9 @@ PLOT_DOG_TORQUES = 1
 PLOT_ARM_TORQUES = 1
 
 rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("../a1_description/urdf/a1.urdf", "../",pin.JointModelFreeFlyer())
-
 robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)
 simu = RobotSimulator(conf, robot)
-contact_schedul  = contact_schedule()
+local_plan  = local_planner ()
 simu.add_contact_surface("ground",conf.ground_pos,conf.ground_normal,
                          conf.ground_Kp,conf.ground_Kd,conf.ground_mu)
 [simu.add_candidate_contact_point(foot) for foot in conf.Foot_frame]
@@ -99,7 +98,7 @@ for ss in range(0, N):#ss: simualtion step
     #
 
     #here is contact
-    n_contact = contact_schedul.contact_num()
+    n_contact = local_plan.contact_num()
     J_st = np.zeros((3*n_contact,nv))
     dJdq_st = np.zeros(3*n_contact)
     J_sw = np.zeros((3*(4-n_contact),nv))
@@ -127,6 +126,15 @@ for ss in range(0, N):#ss: simualtion step
         v_f[j,:] = v_frame.linear
         J_f[3*j:3*j+3,:] = J
         dJdq_f[3*j:3*j+3] = dJdq
+
+    p_h = np.zeros((4,3))
+    v_h = np.zeros((4,3))
+    for j in range(len(conf.Hip_frame)) :
+        frame_id = robot.model.getFrameId(conf.Hip_frame[j])
+        H = robot.framePlacement(q[:,ss], frame_id, False)
+        v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
+        p_h[j,:] = H.translation+np.array([0.0,(-1)**j*0.084,0.0])
+        v_h[j,:] = v_frame.linear
 
     # n_contact =4
     if n_contact == 4:
@@ -161,7 +169,7 @@ for ss in range(0, N):#ss: simualtion step
         B_st = np.zeros((n_contact*B_.shape[0],n_contact*B_.shape[1]))
         beta_st = np.zeros(n_contact*beta_.shape[0])
         for j in range(len(conf.Foot_frame)) :
-            if contact_schedul.in_contact(j):
+            if local_plan.in_contact(j):
                 J_st[3*j_st:3*j_st+3,:] = J_f[3*j:3*j+3,:]
                 dJdq_st[3*j_st:3*j_st+3] = dJdq_f[3*j:3*j+3]
                 #in contact must have the force constrints,FL,FR,RL,RR
@@ -174,9 +182,9 @@ for ss in range(0, N):#ss: simualtion step
                 dJdq_sw[3*j_sw:3*j_sw+3] =  dJdq_f[3*j:3*j+3]
                 p_sw[3*j_sw:3*j_sw+3]=p_f[j]
                 dp_sw[3*j_sw:3*j_sw+3] = v_f[j]
-                p_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_pos(j)
-                dp_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_vel(j)
-                ddp_sw_des[3*j_sw:3*j_sw+3] = contact_schedul.swing_foot_traj_acc(j)
+                p_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_pos(j)
+                dp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_vel(j)
+                ddp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_acc(j)
                 j_sw +=1
         #some tricky copied 
         #task1
@@ -291,7 +299,7 @@ for ss in range(0, N):#ss: simualtion step
     F = inv(R)@Q_c.T@(M@out[:nv]+h-S.T@out[nv:])
     
     tau[:,ss] = np.hstack([np.zeros(6),out[nv:]])
-    contact_schedul.update(conf.dt,p_f)
+    local_plan.update(conf.dt,p_f,p_h,dx_bp)
     # send joint torques to simulator
     simu.simulate(tau[:,ss], conf.dt, conf.ndt)
     if ss%PRINT_N == 0:

@@ -2,7 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
+from numpy import hstack,vstack
 from plot_polygon import plot_convex_shape
+
 p_s = np.array([0,0,0])
 dp_s = np.array([0,0,0])
 ddp_s = np.array([0,0,0])
@@ -58,7 +60,7 @@ def mddnt(t):
 def pt(p_s,dp_s,ddp_s,p_m,dp_m,ddp_m,p_e,dp_e,ddp_e):
     A = np.vstack([mnt(0),mdnt(0),mddnt(0),mnt(T),mdnt(T),mddnt(T)])
     A_ = np.block([[A,np.zeros(A.shape)],[np.zeros(A.shape),A]])
-    b = np.hstack([p_s,dp_s,ddp_s,p_m,dp_m,ddp_m,p_m,dp_m,ddp_m,p_e,dp_e,ddp_e])
+    b = hstack([p_s,dp_s,ddp_s,p_m,dp_m,ddp_m,p_m,dp_m,ddp_m,p_e,dp_e,ddp_e])
     G = A_.T@A_
     h = A_.T@b
     xf, f, xu, iters, lagr, iact = solve_qp(G,h)
@@ -93,16 +95,24 @@ def ddnt(t):
 def dnt(t):
     return np.array([[5*pow(t,4),4*pow(t,3),3*pow(t,2),2*t,1,0]]) 
 
-def diagm(matlist: list):
+def diagm(matlist: list,rcol = 0):
     mat  = None
     for it in matlist :
         if mat is None:
             mat = it
         else:
-            mat = np.block([[mat,np.zeros((mat.shape[0],it.shape[1]))],
-                            [np.zeros((it.shape[0],mat.shape[1])),it]])
+            mat = np.block([[mat,np.zeros((mat.shape[0],it.shape[1]-rcol))],
+                            [np.zeros((it.shape[0],mat.shape[1]-rcol)),it]])
     return mat
 #n
+def diagv(veclist: list,rcol = 0):
+    vec  = None
+    for it in veclist :
+        if vec is None:
+            vec = it
+        else:
+            vec = np.block([vec,np.zeros(rcol),it])
+    return vec
 
 
 #ordered sequnece
@@ -140,34 +150,133 @@ def reduce_convex(polygon_set,s=0.1,w=0.05):
             print(2)
     return reduce_polygon
 
-T = 0.25
-t = 0.2
-p = np.array([0.25*t*t])
-dp = np.array([0.5*t])
-ddp = np.array([0.5])
-G = nt(t).T@nt(t)+dnt(t).T@dnt(t)+ddnt(t).T@ddnt(t)+1e-9*Acc(T)#+1e-9*np.eye(6)
-h = nt(t).T@p+dnt(t).T@dp + ddnt(t).T@ddp
-Aeq = np.vstack([nt(0.),dnt(0.),ddnt(0.)])
-beq = np.array([0,0,0],dtype=np.float64)
-xf, f, xu, iters, lagr, iact = solve_qp(G,h,Aeq.T,beq,3)
-# xf, f, xu, iters, lagr, iact = solve_qp(G,h)
-print(p,dp,ddp)
-print(nt(t)@xf,dnt(t)@xf,ddnt(t)@xf)
-print(nt(T)@xf,dnt(T)@xf,ddnt(T)@xf)
-N =  100
-time = np.linspace(0,T,N)
-traj = np.zeros(N)
-vel = np.zeros(N)
-acc = np.zeros(N)
-for i in range(len(time)):
-    traj[i] = nt(time[i])@xf
-    vel[i] = dnt(time[i])@xf
-    acc[i] = ddnt(time[i])@xf
-plt.plot(time,traj,label='traj')
-plt.plot(time,vel,label='vel')
-plt.plot(time,acc,label='acc')
-plt.legend()
-plt.show()
+def regular_path_generation(stp,dstp,ddstp,fp):
+    """ for some problem provide the solutions
+        min 1/2 x^T G x  -a^Tx
+        s.t. C.T x>= b
+    """
+    n = 2 #number of segments
+    d = 1 #number of coordinates
+    t = 1
+    Q_all = np.zeros((0,0))
+    a_all = np.zeros(0)
+    Ceq_all = np.zeros((0,0))
+    beq_all = np.zeros(0)
+    Ciq_all = np.zeros((0,0))
+    biq_all = np.zeros(0)
+    for i in range(n):
+        #for the sampling of the line, we have some others formulations
+        Q = None
+        a = None
+        Ceq = None
+        beq = None
+        #for the qp slover
+        Ciq = None
+        biq = None
+        if i == 0 :#first segment 
+            Accmat = diagm([Acc(duration[i]) for j in range(d)])
+            #
+            Ceq = diagm([nt(0) for j in range(d)])
+            beq = hstack([stp[j] for j in range(d)])
+            #
+            dCeq = diagm([dnt(0) for j in range(d)])
+            dbeq = hstack([dstp[j] for j in range(d)])
+            #
+            ddCeq = diagm([ddnt(0) for j in range(d)])
+            ddbeq = hstack([ddstp[j] for j in range(d)])
+            #
+            Q= Accmat
+            # a=hstack([np.zeros(6*d)])
+            Ceq=vstack([Ceq,dCeq,ddCeq])
+            beq=hstack([beq,dbeq,ddbeq])
+            # Ciq
+            # biq
+
+
+        if n > 1 and i < n-1:#middle segment
+            Accmat = diagm([Acc(duration[i]) for j in range(d)])
+            #
+            Ceq = diagm([hstack([nt(duration[i]),np.zeros((1,6*(d-1))),-nt(0)]) for j in range(d)],6*d)     
+            beq = hstack([0. for j in range(d)])
+            #
+            dCeq = diagm([hstack([dnt(duration[i]),np.zeros((1,6*(d-1))),-dnt(0)]) for j in range(d)],6*d)
+            dbeq = hstack([0. for j in range(d)])
+            #
+            ddCeq = diagm([hstack([ddnt(duration[i]),np.zeros((1,6*(d-1))),-ddnt(0)])for j in range(d)],6*d)
+            ddbeq = hstack([0. for j in range(d)])
+            #
+            Q=Accmat
+            # a
+            Ceq=vstack([Ceq,dCeq,ddCeq])
+            beq=hstack([beq,dbeq,ddbeq])
+            # Ciq
+            # biq
+
+
+        if i == n-1:#final segment 
+            Accmat = diagm([Acc(duration[i])for j in range(d)])
+            Tm = diagm([nt(duration[i]).T@nt(duration[i]) for j in range(d)])
+            am = hstack([nt(duration[i])*fp[j] for j in range(d)])
+            # #
+            # Ceq = diagm([nt(t)for j in range(d)])
+            # beq = hstack([0. for j in range(d)])
+            # #
+            # dCeq = diagm([dnt(t)for j in range(d)])
+            # dbeq = hstack([0. for j in range(d)])
+            # #
+            # ddCeq = diagm([ddnt(t)for j in range(d)])
+            # ddbeq = hstack([0. for j in range(d)])
+            Q=Accmat+Tm
+            a=am
+            # Ceq=vstack([Ceq,dCeq,ddCeq])
+            # beq=hstack([beq,dbeq,ddbeq])
+            # Ciq
+            # biq
+
+        #calculate Q,a,c,b, eq constraints
+        if not Q is None:
+            Q_all= diagm([Q_all,Q],Q_all.shape[1]-i*6*d)
+        if not a is None:
+            a_all=diagv([a_all,a],i*6*d-a_all.shape[0])
+        if not Ceq is None:
+            Ceq_all= diagm([Ceq_all,Ceq],Ceq_all.shape[1]-i*6*d)
+            beq_all=diagv([beq_all,beq],i*6*d-beq_all.shape[0])
+        if not Ciq is None:
+            Ciq_all= diagm([Ciq_all,Ciq],Ciq_all.shape[1]-i*6*d)
+            biq_all=diagv([biq_all,biq],i*6*d-biq_all.shape[0])
+    
+
+    return 
+
+# T = 0.25
+# t = 0.2
+# p = np.array([0.25*t*t])
+# dp = np.array([0.5*t])
+# ddp = np.array([0.5])
+# G = nt(t).T@nt(t)+dnt(t).T@dnt(t)+ddnt(t).T@ddnt(t)+1e-9*Acc(T)#+1e-9*np.eye(6)
+# h = nt(t).T@p+dnt(t).T@dp + ddnt(t).T@ddp
+# Aeq = np.vstack([nt(0.),dnt(0.),ddnt(0.)])
+# beq = np.array([0,0,0],dtype=np.float64)
+# xf, f, xu, iters, lagr, iact = solve_qp(G,h,Aeq.T,beq,3)
+# # xf, f, xu, iters, lagr, iact = solve_qp(G,h)
+# print(p,dp,ddp)
+# print(nt(t)@xf,dnt(t)@xf,ddnt(t)@xf)
+# print(nt(T)@xf,dnt(T)@xf,ddnt(T)@xf)
+# N =  100
+# time = np.linspace(0,T,N)
+# traj = np.zeros(N)
+# vel = np.zeros(N)
+# acc = np.zeros(N)
+# for i in range(len(time)):
+#     traj[i] = nt(time[i])@xf
+#     vel[i] = dnt(time[i])@xf
+#     acc[i] = ddnt(time[i])@xf
+# plt.plot(time,traj,label='traj')
+# plt.plot(time,vel,label='vel')
+# plt.plot(time,acc,label='acc')
+# plt.legend()
+# plt.show()
+# plt.figure()
 
 #(vertexs:[[x,y],],duration:t)
 #just for planar trajectory
@@ -197,17 +306,24 @@ polygons = [(np.array([[0.5,   0.25],[0.5   ,-0.25] ,[-0.5   ,-0.25],[-0.5   ,0.
 
     
 # plot_convex_shape(polygons[0][0],'b')
-# for (j,i) in polygons:
-#     plot_convex_shape(j,'k')
-# a = reduce_convex(polygons)
+
+a = reduce_convex(polygons)
 # plt.xlim([-0.8,0.8])
 # plt.ylim([-0.8,0.8])
 # plt.grid()
-# plt.show()
-# plt.figure()
 # # plot_convex_shape(a[0][0],'r')
-# for (j,i) in a:
-#     plot_convex_shape(j,'r')
+# for (j,i) in polygons:
+#     plot_convex_shape(j,'k')
+plt.figure()
+plt.xlim([-0.6,0.6])
+plt.ylim([-0.6,0.6])
+plt.grid()
+for (j,i) in a:
+    plot_convex_shape(j,'r')
+
+#calcualate the regularize  path
+
+
 
 
 # plt.xlim([-0.8,0.8])
@@ -258,7 +374,14 @@ polygons = [(np.array([[0.5,   0.25],[0.5   ,-0.25] ,[-0.5   ,-0.25],[-0.5   ,0.
 # ax.legend()
 # plt.show()
 
-n = 2
-duration = [1,1]
+duration = [1,1,1,1,1]#duration of each spline,suppose that each segment has the same duration in each coordinate
+# tot_t = sum(duration)#total horizon
+dt = 0.01 #in seconds sample time
 
 
+p = np.array([0,0,0])
+dp = np.array([0,0,0])
+ddp = np.array([0,0,0])
+f_p = np.array([0,0,0])
+regular_path_generation(p,dp,ddp,f_p)
+#matrix structure
