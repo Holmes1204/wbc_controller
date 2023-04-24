@@ -153,7 +153,7 @@ def motion_optimzation():
                 cnst = diagm([cnst,nt(t)])
                 dcnst = diagm([dcnst,dnt(t)])
                 ddcnst = diagm([ddcnst,ddnt(t)])
-
+        
     return 
 
 

@@ -225,6 +225,10 @@ for i in range(n):
             traj_dp[k,j+i*N] = dnt(time[j])@xf[i*6+k*6:i*6+(k+1)*6]
             traj_ddp[k,j+i*N] = ddnt(time[j])@xf[i*6+k*6:i*6+(k+1)*6]
 
+LABEL={
+    0:'x',1:'y',2:'z'
+}
+
 plt.figure()
 plt.plot(tot_time,traj_p[1,:],label='pos')
 plt.legend()
