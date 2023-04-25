@@ -61,7 +61,8 @@ def Q_traj(Tm,time:np.array,p:np.array):
 """ 
 for some problem provide the solutions
 min 1/2 x^T G x  -a^Tx
-s.t. C.T x>= b
+s.t. 
+    C.T x>= b
 """
 def reduce_convex(polygon_set,s=0.1,w=0.05):
     """reduce the shape of the support polygons"""
@@ -70,7 +71,6 @@ def reduce_convex(polygon_set,s=0.1,w=0.05):
         num_vertices = len(vertex)
         new_vertex = vertex.copy()
         if num_vertices>2:
-            print(">2")
             c = np.zeros(num_vertices)
             vec_n = np.zeros((num_vertices,2))
             for i in range(num_vertices):
@@ -94,7 +94,6 @@ def reduce_convex(polygon_set,s=0.1,w=0.05):
             v3 = vertex[1]-w*normal-s*direct
             v4 = vertex[0]-w*normal+s*direct
             reduce_polygon.append(([v1,v2,v3,v4],duration))
-            print(2)
     return reduce_polygon
 
 
@@ -129,10 +128,10 @@ p1=[0.5,1.25]
 n_seg = 2 #number of segments
 dim = 2 #number of coordinates
 delta = 0.01
-xf =traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp)
+coeff =traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp)
 
 
-### need xf,dim,n_seg
+### need coeff,dim,n_seg
 N =100
 traj_p = np.zeros((dim,n_seg*N))
 traj_dp = np.zeros((dim,n_seg*N))
@@ -144,9 +143,9 @@ for i in range(n_seg):
     for j in range(N):
         tot_time[j+i*N] = tot_time[i*N-1]+time[j]
         for k in range(dim):
-            traj_p[k,j+i*N] = nt(time[j])@xf[i*6*dim+k*6:i*6*dim+(k+1)*6]
-            traj_dp[k,j+i*N] = dnt(time[j])@xf[i*6*dim+k*6:i*6*dim+(k+1)*6]
-            traj_ddp[k,j+i*N] = ddnt(time[j])@xf[i*6*dim+k*6:i*6*dim+(k+1)*6]
+            traj_p[k,j+i*N] = nt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+            traj_dp[k,j+i*N] = dnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+            traj_ddp[k,j+i*N] = ddnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
 
 LABEL={0:'x',1:'y',2:'z'}
 plt.figure()

@@ -7,10 +7,13 @@
 #local planner is a litte complicated, However, this part is what make sure the intelligence of the robot
 #small brain or main brain?
 import numpy as np
+import sys
+sys.path.append("../")
+# print(sys.path)
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
-
+from traj_optimization import traj_opt
 def mnt(t):
     def nt(t):
         return np.array([pow(t,5),pow(t,4),pow(t,3),pow(t,2),t,1]) 
@@ -38,10 +41,9 @@ def mddnt(t):
         [np.zeros(6),np.zeros(6),ddnt(t)]])
 
 """
-for swing foot motion, we get some assumption like this
-1. the velocity and accerlation of the start point and end point are zero
-2. the velocity of the apex in the trajectory is set to [1.,0.,0.],suppose the robot just move in x direction
-3. 
+    for swing foot motion, we get some assumption like this
+    1. the velocity and accerlation of the start point and end point are zero
+    2. the velocity of the apex in the trajectory is set to [1.,0.,0.],suppose the robot just move in x direction
 """
 def traj_2seg_spline(p_s,p_e,T):
     
@@ -160,7 +162,8 @@ if __name__ == "__main__":
     dt = 0.001
     foot = np.zeros((4,3))
     for i in range(1000):
-        contact.update(dt,foot)
-        contact.swing_foot_traj_pos(0)
-        contact.swing_foot_traj_vel(0)
-        contact.print()
+        # contact.update(dt,foot)
+        # contact.swing_foot_traj_pos(0)
+        # contact.swing_foot_traj_vel(0)
+        # contact.print()
+        pass

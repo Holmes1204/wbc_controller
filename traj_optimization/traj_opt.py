@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
 from numpy import hstack,vstack
-
+from qpsolvers import solve_qp as qp_solve
 
 def Acc(T,alpha=1e-8):
     return np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
@@ -159,5 +159,7 @@ def traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
     eqns = Ceq_all.shape[0]
     C = vstack([Ceq_all,Ciq_all])
     b = hstack([beq_all,biq_all])
-    xf, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
-    return xf
+    # x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
+    # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
+    x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
+    return x

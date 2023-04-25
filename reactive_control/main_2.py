@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import time
 from math import sqrt,sin,pi
 import sys
-sys.path.append("/home/holmes/code/graduation_simulation_code")
+sys.path.append("../")
 import utils.plot_utils as plut
 from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator

@@ -185,3 +185,5 @@ only use the Jddq+dJdq = 0 as constraints will lead to bad performance when the 
 how to simulate the contact
 the detailed of the motion result
 and simulation can be understood by the idea of smapling
+
+qpsolvers.available_solvers  can list all the available qpsolvers
