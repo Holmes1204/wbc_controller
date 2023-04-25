@@ -130,3 +130,6 @@ dmypy.json
 Icon[
 ]
 .vscode/
+build/
+devel/
+.catkin_workspace
