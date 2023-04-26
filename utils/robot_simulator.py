@@ -25,14 +25,14 @@ class ContactPoint:
             Get the current position of this contact point 
         '''
         M = self.data.oMf[self.frame_id]
-        return M.translation
+        return M.translation.copy()
         
     def get_velocity(self):
         M = self.data.oMf[self.frame_id]
         R = pin.SE3(M.rotation, 0*M.translation)    # same as M but with translation set to zero
         v_local = pin.getFrameVelocity(self.model, self.data, self.frame_id)
         v_world = (R.act(v_local)).linear   # convert velocity from local frame to world frame
-        return v_world
+        return v_world.copy()
         
     def get_jacobian(self):
         J6 = pin.getFrameJacobian(self.model, self.data, self.frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
@@ -100,11 +100,12 @@ class Contact:
         self.reset_contact_position()
 
     def reset_contact_position(self):
-        # Initialize anchor point p0, that is the initial (0-load) position of the spring
         self.p0 = self.cp.get_position()
+        # print("reset",self.p0)
         self.in_contact = True
 
     def compute_force(self):
+        p = self.p0
         self.f, self.p0 = self.cs.compute_force(self.cp, self.p0)
         return self.f
         

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import time
 from math import sqrt
 import sys
-sys.path.append("../")
+sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
 import utils.plot_utils as plut
 from utils.robot_loaders import loadUR
 from utils.robot_wrapper import RobotWrapper
@@ -29,8 +29,8 @@ PLOT_DOG_TORQUES = 0
 
 
 #load('ur5')
-rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("../a1_description/urdf/a1.urdf", "../",pin.JointModelFreeFlyer())
-robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)
+rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("./a1_description/urdf/a1.urdf", ".",pin.JointModelFreeFlyer())
+robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)   
 simu = RobotSimulator(conf, robot)
 local_plan  = local_planner()
 simu.add_contact_surface("ground",conf.ground_pos,conf.ground_normal,
@@ -256,7 +256,7 @@ for ss in range(0, N):#ss: simualtion step
         f2 = beta_st - B_st@inv(R)@Q_c.T@h
 
         #task4
-        Kp_sw = 1200
+        Kp_sw = 1500
         Kd_sw = 2*sqrt(Kp_sw)
         A4 = np.hstack([J_sw,np.zeros((3*(4-n_contact),12))])
         b4 = -dJdq_sw+Kp_sw*(p_sw_des-p_sw)+Kd_sw*(dp_sw_des-dp_sw)+ddp_sw_des

@@ -42,7 +42,7 @@ amp         = np.array([0.1, 0.1, 0.0])           # amplitude
 freq        = np.array([1.0, 1.0, 0.3])           # frequency (time 2 PI)
 
 simulate_coulomb_friction = 0    # flag specifying whether coulomb friction is simulated
-simulation_type = 'timestepping' # either 'timestepping' or 'euler'
+simulation_type = 'euler' # either 'timestepping' or 'euler'
 # tau_coulomb_max = 0*np.ones(12)   # expressed as percentage of torque max for fixed trunk
 tau_coulomb_max = 0*np.ones(18)   # expressed as percentage of torque max for floating trunk
 
