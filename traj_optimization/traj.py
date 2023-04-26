@@ -25,6 +25,8 @@ def ddnt(t):
 def dnt(t):
     return np.array([[5*pow(t,4),4*pow(t,3),3*pow(t,2),2*t,1,0]]) 
 
+def T(t):
+    return diagm([nt(t),ddnt(t),dnt(t)])
 
 def diagm(matlist: list,rcol = 0):
     mat  = None
@@ -56,7 +58,7 @@ def Q_traj(Tm,time:np.array,p:np.array):
     return Q_,a_
  
 
-def traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
+def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
     """
         p: all the sample points of postion for each segment part,structure like this [[],[]]
         dp: all the sample points of postion for each segment part,structure like this [[],[]]
@@ -68,7 +70,9 @@ def traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
     beq_all = np.zeros(0)
     Ciq_all = np.zeros((0,0))
     biq_all = np.zeros(0)
-    delta =0.01
+    delta =0.01#in meter
+    n_seg = len(duration)
+    dim  = len(stp)#
     for i in range(n_seg):
         #for the sampling of the line, we have some others formulations
         #for the qp slover
@@ -160,6 +164,50 @@ def traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
     C = vstack([Ceq_all,Ciq_all])
     b = hstack([beq_all,biq_all])
     # x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
-    # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
-    x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
+    x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
+    # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
     return x
+
+
+def traj_show(duration,dim,coeff):
+        ### need coeff,dim,n_seg
+    N =100
+    n_seg = len(duration)
+    traj_p = np.zeros((dim,n_seg*N))
+    traj_dp = np.zeros((dim,n_seg*N))
+    traj_ddp = np.zeros((dim,n_seg*N))
+    tot_time = np.zeros(n_seg*N)
+
+    for i in range(n_seg):  
+        time = np.linspace(0,duration[i],N)
+        for j in range(N):
+            tot_time[j+i*N] = tot_time[i*N-1]+time[j]
+            for k in range(dim):
+                traj_p[k,j+i*N] = nt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                traj_dp[k,j+i*N] = dnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                traj_ddp[k,j+i*N] = ddnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+
+    LABEL={0:'x',1:'y',2:'z'}
+    plt.figure()
+    for j in range(dim):
+        plt.plot(tot_time,traj_p[j,:],label='$pos_'+LABEL[j]+"$")
+    plt.legend()
+    plt.grid()
+
+    plt.figure()
+    for j in range(dim):
+        plt.plot(tot_time,traj_dp[j,:],label='$vel_'+LABEL[j]+"$")
+    plt.legend()
+    plt.grid()
+
+    plt.figure()
+    for j in range(dim):
+        plt.plot(tot_time,traj_ddp[j,:],label="$acc_"+LABEL[j]+"$")
+    plt.legend()
+    plt.grid()
+
+
+    plt.figure()
+    plt.plot(traj_p[0,:],traj_p[1,:])
+    plt.grid()
+    plt.show()

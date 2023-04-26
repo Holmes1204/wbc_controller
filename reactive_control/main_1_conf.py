@@ -14,7 +14,7 @@ LINE_WIDTH = 60
 
 # q0 = np.array([0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3])# fixed body frame
 q0 = np.array([0.0,0.0,0.31836983483860026,0.0,0.0,0.0,1.0,0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3])# floating base
-T_SIMULATION = 2            # simulation time
+T_SIMULATION = 1            # simulation time
 dt = 0.0005                   # controller time step second control time
 ndt = 20                      # number of integration steps for each control loop dt/ndt is the real  simulation time
 
@@ -33,13 +33,6 @@ RL_hip = 'RL_hip'
 RR_hip = 'RR_hip'  
 Hip_frame = [FL_hip,FR_hip,RL_hip,RR_hip]
 # PARAMETERS OF REFERENCE SINUSOIDAL TRAJECTORY
-x0          = np.array([0.6, 0.2, 0.4])         # offset
-amp         = np.array([0.1, 0.1, 0.0])           # amplitude
-phi         = np.array([0.0, 0.5*np.pi, 0.0])     # phase
-freq        = np.array([0.5, 0.5, 0.3])           # frequency (time 2 PI)
-
-amp         = np.array([0.1, 0.1, 0.0])           # amplitude
-freq        = np.array([1.0, 1.0, 0.3])           # frequency (time 2 PI)
 
 simulate_coulomb_friction = 0    # flag specifying whether coulomb friction is simulated
 simulation_type = 'euler' # either 'timestepping' or 'euler'

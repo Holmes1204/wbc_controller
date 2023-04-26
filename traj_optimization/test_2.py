@@ -4,7 +4,7 @@ from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
 from numpy import hstack,vstack
 from plot_polygon import plot_convex_shape
-from traj_opt import traj_opt
+from traj_optimization.traj import traj_opt,traj_show
 
 def Acc(T,alpha=1e-8):
     return np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
@@ -119,6 +119,7 @@ polygons = [(np.array([[0.5,   0.25],[0.5   ,-0.25] ,[-0.5   ,-0.25],[-0.5   ,0.
 """
 duration=[polygons[j][1] for j in range(len(polygons))]
 c_point = [sum(polygons[j][0])/4 for j in range(len(polygons))]
+duration_=duration[:2]
 stp=[0,2]
 dstp=[0.,0.]
 ddstp=[0.,0.]
@@ -128,47 +129,6 @@ p1=[0.5,1.25]
 n_seg = 2 #number of segments
 dim = 2 #number of coordinates
 delta = 0.01
-coeff =traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp)
 
-
-### need coeff,dim,n_seg
-N =100
-traj_p = np.zeros((dim,n_seg*N))
-traj_dp = np.zeros((dim,n_seg*N))
-traj_ddp = np.zeros((dim,n_seg*N))
-tot_time = np.zeros(n_seg*N)
-
-for i in range(n_seg):  
-    time = np.linspace(0,duration[i],N)
-    for j in range(N):
-        tot_time[j+i*N] = tot_time[i*N-1]+time[j]
-        for k in range(dim):
-            traj_p[k,j+i*N] = nt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
-            traj_dp[k,j+i*N] = dnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
-            traj_ddp[k,j+i*N] = ddnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
-
-LABEL={0:'x',1:'y',2:'z'}
-plt.figure()
-for j in range(dim):
-    plt.plot(tot_time,traj_p[j,:],label='$pos_'+LABEL[j]+"$")
-plt.legend()
-plt.grid()
-
-plt.figure()
-for j in range(dim):
-    plt.plot(tot_time,traj_dp[j,:],label='$vel_'+LABEL[j]+"$")
-
-plt.legend()
-plt.grid()
-
-plt.figure()
-for j in range(dim):
-    plt.plot(tot_time,traj_ddp[j,:],label="$acc_"+LABEL[j]+"$")
-plt.legend()
-plt.grid()
-
-
-plt.figure()
-plt.plot(traj_p[0,:],traj_p[1,:])
-plt.grid()
-plt.show()
+coeff =traj_opt(duration_,stp,dstp,ddstp,fp)
+traj_show(duration_,len(stp),coeff)

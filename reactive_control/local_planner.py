@@ -13,28 +13,30 @@ sys.path.append("../")
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
-from traj_optimization import traj_opt
+from traj_optimization.traj import traj_opt,traj_show
+
+def nt(t):
+    return np.array([pow(t,5),pow(t,4),pow(t,3),pow(t,2),t,1]) 
 def mnt(t):
-    def nt(t):
-        return np.array([pow(t,5),pow(t,4),pow(t,3),pow(t,2),t,1]) 
     return np.block([
         [nt(t),np.zeros(6),np.zeros(6)],
         [np.zeros(6),nt(t),np.zeros(6)],
         [np.zeros(6),np.zeros(6),nt(t)]])
 
+def dnt(t):
+    return np.array([5*pow(t,4),4*pow(t,3),3*pow(t,2),2*t,1,0]) 
 
 def mdnt(t):
-    def dnt(t):
-        return np.array([5*pow(t,4),4*pow(t,3),3*pow(t,2),2*t,1,0]) 
     return np.block([
         [dnt(t),np.zeros(6),np.zeros(6)],
         [np.zeros(6),dnt(t),np.zeros(6)],
         [np.zeros(6),np.zeros(6),dnt(t)]])
 
 
+def ddnt(t):
+    return np.array([20*pow(t,3),12*pow(t,2),6*t,2,0,0]) 
+
 def mddnt(t):
-    def ddnt(t):
-        return np.array([20*pow(t,3),12*pow(t,2),6*t,2,0,0]) 
     return np.block([
         [ddnt(t),np.zeros(6),np.zeros(6)],
         [np.zeros(6),ddnt(t),np.zeros(6)],
@@ -47,7 +49,7 @@ def mddnt(t):
 """
 def traj_2seg_spline(p_s,p_e,T):
     
-    p_m  = 0.5*(p_s + p_e)+np.array([0.,0.,0.05])
+    p_m  = 0.5*(p_s + p_e)+np.array([0.,0.,0.02])
     dp_m =np.array([0.5,0.5,0.])
 
     dp_s =np.zeros(3)
@@ -67,7 +69,7 @@ def traj_2seg_spline(p_s,p_e,T):
 
 
 class local_planner:
-    time_factor = 0.5 # the time of a period of motion
+    time_factor = 0.25 # the time of a period of motion
     stance_phase = 0.75# the phase of stance 
     swing_phase = 0.25# the time of swing 
     contact = [True,True,True,True]# [FL,FR, RL,RR] follow this sequence, True is in contact, False means in swing phase
@@ -79,8 +81,9 @@ class local_planner:
     next_foot =np.zeros((4,3))
     swing_coeff = np.zeros((4,36))
     #change the force by the phase
-    def __init__(self):
+    def __init__(self,conf):
         self.touch_down = [self.lift_off[i] + self.swing_phase for i in range(4)]#the touch down event time
+        self.conf = conf
         return
     
     
@@ -154,6 +157,34 @@ class local_planner:
         print(str(self.current_phi)+"\n",n,self.contact,self.phase)
     
 
+    def body_traj_plan(self):
+        self.duration =[0.05,0.15,0.10,0.15,0.10,0.15,0.10,0.15,0.05]
+        self.cum_duration = np.cumsum(self.duration)
+        self.traj_tot_time = sum(self.duration)
+        self.dim  = 2
+        #traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
+        self.coeff = traj_opt(self.duration,[0,0],[0,0],[0,0],[.2,.1])
+        self.traj_time = 0
+        
+    def body_traj_update(self,dt):
+        dim  = self.dim 
+        p = np.zeros(2)
+        v = np.zeros(2)
+        a = np.zeros(2)
+        if self.traj_time < self.traj_tot_time :
+            for i in range(1,len(self.cum_duration)):
+                if self.traj_time < self.cum_duration[i]:
+                    time = self.traj_time- self.cum_duration[i-1]
+                    for k in range(2):
+                        p[k] = nt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                        v[k] = dnt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                        a[k] = ddnt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                    self.traj_time +=dt
+                    return p,v,a
+        #follow the time splice and get the reference  
+
+    def body_traj_show(self):
+        traj_show(self.duration,self.dim,self.coeff)
 
 
 
