@@ -104,7 +104,7 @@ def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
             Ceq_=diagm(Ceq_seg)
             beq_= hstack(beq_seg)
 
-        if i > 0 and i < n_seg-1:#middle segment
+        elif i > 0 and i < n_seg-1:#middle segment
             for j in range(dim):
                 Q_seg.append(Acc(duration[i]))
                 a_seg.append(np.zeros(6))
@@ -113,13 +113,132 @@ def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
                                     hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)]),
                                     hstack([ddnt(duration[i-1]),np.zeros((1,6*(dim-1))),-ddnt(0)])]))
                 beq_sm.append(hstack([0,0,0]))
+
             Q_=diagm(Q_seg)
             a_=hstack(a_seg)
             Ceq_sm_=diagm(Ceq_sm,6*dim)
             beq_sm_= hstack(beq_sm)
 
 
-        if i == n_seg-1:#final segment 
+        elif i == n_seg-1:#final segment 
+            
+            for j in range(dim):
+                # coeff = 1
+                # coeff_1= 0.1
+                # traj_Q,traj_a = Q_traj(nt,[0.1],[p1[j]])
+                Q_seg.append(Acc(duration[i])+nt(duration[i]).T@nt(duration[i]))
+                a_seg.append(np.zeros(6)+(nt(duration[i])*fp[j]).reshape(-1))
+                #judge here by SAT about the acc smoothness
+                Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
+                                    hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)]),
+                                    hstack([ddnt(duration[i-1]),np.zeros((1,6*(dim-1))),-ddnt(0)])]))
+                beq_sm.append(hstack([0,0,0]))
+                #
+                Ciq_seg.append(vstack([nt(duration[i]),-nt(duration[i])]))
+                biq_seg.append(hstack([fp[j]-delta,-(fp[j]+delta)]))
+            #
+            Q_=diagm(Q_seg)
+            a_=hstack(a_seg)
+            Ciq_ = diagm(Ciq_seg)
+            biq_ = hstack(biq_seg)
+            Ceq_sm_=diagm(Ceq_sm,6*dim)
+            beq_sm_= hstack(beq_sm)
+
+        #calculate Q,a,c,b, eq constraints
+        if not Q_ is None:
+            Q_all= diagm([Q_all,Q_],Q_all.shape[1]-i*6*dim)
+            a_all=diagv([a_all,a_])
+        if not Ceq_sm_ is None:
+            Ceq_all= diagm([Ceq_all,Ceq_sm_],Ceq_all.shape[1]-(i-1)*6*dim)
+            beq_all=diagv([beq_all,beq_sm_])
+        if not Ceq_ is None:
+            Ceq_all= diagm([Ceq_all,Ceq_],Ceq_all.shape[1]-i*6*dim)
+            beq_all=diagv([beq_all,beq_])
+        else:
+            Ceq_all= hstack([Ceq_all,np.zeros((Ceq_all.shape[0],(i+1)*6*dim-Ceq_all.shape[1]))])
+        if not Ciq_ is None:
+            Ciq_all= diagm([Ciq_all,Ciq_],Ciq_all.shape[1]-i*6*dim)
+            biq_all=diagv([biq_all,biq_])
+        else:
+            Ciq_all= hstack([Ciq_all,np.zeros((Ciq_all.shape[0],(i+1)*6*dim-Ciq_all.shape[1]))])
+
+    eqns = Ceq_all.shape[0]
+    C = vstack([Ceq_all,Ciq_all])
+    b = hstack([beq_all,biq_all])
+    # x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
+    x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
+    # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
+    return x
+
+
+    pass
+
+
+#each slice have the same 
+def traj_opt_regular(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
+    """
+        p: all the sample points of postion for each segment part,structure like this [[],[]]
+        dp: all the sample points of postion for each segment part,structure like this [[],[]]
+        ddp: all the sample points of postion for each segment part,structure like this [[],[]]
+    """
+    Q_all = np.zeros((0,0))
+    a_all = np.zeros(0)
+    Ceq_all = np.zeros((0,0))
+    beq_all = np.zeros(0)
+    Ciq_all = np.zeros((0,0))
+    biq_all = np.zeros(0)
+    delta =0.01#in meter
+    n_seg = len(duration)
+    dim  = len(stp)#
+    for i in range(n_seg):
+        #for the sampling of the line, we have some others formulations
+        #for the qp slover
+        Q_ = None
+        a_ = None
+        Ceq_ = None
+        beq_ = None
+        Ceq_sm_=None
+        beq_sm_=None
+        Ciq_ = None
+        biq_ = None
+        Q_seg=[]
+        a_seg=[]
+        Ceq_seg=[]
+        beq_seg=[] 
+        Ceq_sm=[]
+        beq_sm=[] 
+        Ciq_seg=[]
+        biq_seg=[]
+
+        if i == 0 :#first segment
+            for j in range(dim):
+                Q_seg.append(Acc(duration[i]))
+                a_seg.append(np.zeros(6))
+                Ceq_seg.append(vstack([nt(0),dnt(0),ddnt(0)]))
+                beq_seg.append(hstack([stp[j],dstp[j],ddstp[j]]))
+            Q_=diagm(Q_seg)
+            a_=hstack(a_seg)
+            Ceq_=diagm(Ceq_seg)
+            beq_= hstack(beq_seg)
+
+        elif i > 0 and i < n_seg-1:#middle segment
+            for j in range(dim):
+                Q_seg.append(Acc(duration[i]))
+                a_seg.append(np.zeros(6))
+                #judge here by SAT about the acc smoothness
+                Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
+                                    hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)]),
+                                    hstack([ddnt(duration[i-1]),np.zeros((1,6*(dim-1))),-ddnt(0)])]))
+                beq_sm.append(hstack([0,0,0]))
+
+            Q_=diagm(Q_seg)
+            a_=hstack(a_seg)
+            Ceq_sm_=diagm(Ceq_sm,6*dim)
+            beq_sm_= hstack(beq_sm)
+
+
+        elif i == n_seg-1:#final segment 
+            
             for j in range(dim):
                 # coeff = 1
                 # coeff_1= 0.1

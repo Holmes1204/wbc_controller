@@ -97,10 +97,13 @@ def reduce_convex(polygon_set,s=0.1,w=0.05):
     return reduce_polygon
 
 
+def get_line():
+    
+    return 
+
 dx = 0.2
 dy = 0.2
-
-#leg sequence was changed, and the  3rd column is the RR leg, and the 4th column is the RF leg
+#leg sequence is changed, and the  3rd column is the RR leg, and the 4th column is the RF leg
 polygons = [(np.array([[0.5,   0.25],[0.5   ,-0.25] ,[-0.5   ,-0.25],[-0.5   ,0.25]]),0.05),#0.05-0.0 all down until LF lift
             (np.array([              [0.5   ,-0.25] ,[-0.5   ,-0.25],[-0.5   ,0.25]]),0.15),#0.2-0.05,LF lift until RR lift
             (np.array([              [0.5   ,-0.25]                 ,[-0.5   ,0.25]]),0.10),#0.3-0.2 RR lift until LF touch
@@ -130,5 +133,6 @@ n_seg = 2 #number of segments
 dim = 2 #number of coordinates
 delta = 0.01
 
-coeff =traj_opt(duration_,stp,dstp,ddstp,fp)
-traj_show(duration_,len(stp),coeff)
+regular_coeff =traj_opt(duration_,stp,dstp,ddstp,fp)
+
+traj_show(duration_,len(stp),regular_coeff)

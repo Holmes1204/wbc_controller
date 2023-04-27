@@ -47,10 +47,10 @@ def mddnt(t):
     1. the velocity and accerlation of the start point and end point are zero
     2. the velocity of the apex in the trajectory is set to [1.,0.,0.],suppose the robot just move in x direction
 """
-def traj_2seg_spline(p_s,p_e,T):
+def traj_2seg_spline(p_s,p_e,T,v):
     
-    p_m  = 0.5*(p_s + p_e)+np.array([0.,0.,0.02])
-    dp_m =np.array([0.5,0.5,0.])
+    p_m  = 0.5*(p_s + p_e)+np.array([0.,0.,0.03])
+    dp_m =np.array([2.0*v[0],0.,0.])
 
     dp_s =np.zeros(3)
     dp_e =np.zeros(3)
@@ -69,7 +69,7 @@ def traj_2seg_spline(p_s,p_e,T):
 
 
 class local_planner:
-    time_factor = 0.25 # the time of a period of motion
+    time_factor = 1.0 # the time of a period of motion
     stance_phase = 0.75# the phase of stance 
     swing_phase = 0.25# the time of swing 
     contact = [True,True,True,True]# [FL,FR, RL,RR] follow this sequence, True is in contact, False means in swing phase
@@ -101,7 +101,7 @@ class local_planner:
                 if self.first_swing[i] :
                     #do some thing
                     #2. get the coefficient of the swing trajectory 
-                    self.swing_coeff[i] = traj_2seg_spline(foot[i],self.next_foot[i],self.swing_phase*self.time_factor*0.5)
+                    self.swing_coeff[i] = traj_2seg_spline(foot[i],self.next_foot[i],self.swing_phase*self.time_factor*0.5,v)
                     #plan
                     self.first_swing[i]  = False
                 self.contact[i] = False
@@ -115,7 +115,7 @@ class local_planner:
                     #plan
                     self.first_stand[i]  = False
                 self.first_swing[i] = True
-                self.next_foot[i] = np.array([hip[i][0]+v[0]*self.stance_phase*self.time_factor/2.0+0.02,hip[i][1]+v[1]*self.stance_phase*self.time_factor/2.0,foot[i][2]])
+                self.next_foot[i] = np.array([hip[i][0]+1.5*v[0]*self.stance_phase*self.time_factor/2.0,hip[i][1]+v[1]*self.stance_phase*self.time_factor/2.0,foot[i][2]])
                 self.phase[i] = (self.time_factor-self.current_phi+self.lift_off[i])*self.time_factor \
                     if self.current_phi > self.lift_off[i] else (self.lift_off[i]-self.current_phi)*self.time_factor
 
@@ -158,12 +158,12 @@ class local_planner:
     
 
     def body_traj_plan(self):
-        self.duration =[0.05,0.15,0.10,0.15,0.10,0.15,0.10,0.15,0.05]
+        self.duration =10*[0.05,0.15,0.10,0.15,0.10,0.15,0.10,0.15,0.05]
         self.cum_duration = np.cumsum(self.duration)
         self.traj_tot_time = sum(self.duration)
         self.dim  = 2
         #traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
-        self.coeff = traj_opt(self.duration,[0,0],[0,0],[0,0],[.2,.1])
+        self.coeff = traj_opt(self.duration,[0,0],[0,0],[0,0],[2.5,.0])
         self.traj_time = 0
         
     def body_traj_update(self,dt):
@@ -176,8 +176,8 @@ class local_planner:
                 if self.traj_time < self.cum_duration[i]:
                     time = self.traj_time- self.cum_duration[i-1]
                     for k in range(2):
-                        p[k] = nt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
-                        v[k] = dnt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                        p[k] =   nt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                        v[k] =  dnt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
                         a[k] = ddnt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
                     self.traj_time +=dt
                     return p,v,a

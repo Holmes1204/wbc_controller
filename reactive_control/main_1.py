@@ -34,7 +34,7 @@ simu = RobotSimulator(conf, robot)
 local_plan  = local_planner(conf)
 local_plan.body_traj_plan()
 local_plan.body_traj_show()
-simu.add_contact_surface("ground",conf.ground_pos,conf.ground_normal,
+simu.add_contact_surface("ground",conf.ground_pos,conf.ground_normal, 
                          conf.ground_Kp,conf.ground_Kd,conf.ground_mu)
 [simu.add_candidate_contact_point(foot) for foot in conf.Foot_frame]
 simu.add_candidate_contact_point("trunk")
@@ -96,7 +96,7 @@ for ss in range(0, N):#ss: simualtion step
     v_f = np.zeros((4,3))
     j_contact = 0
     tasks = []
-    #state feedback and Jacobian and djacobian@dq
+    # state feedback and Jacobian and djacobian@dq
     for j in range(len(conf.Foot_frame)) :
         frame_id = robot.model.getFrameId(conf.Foot_frame[j])
         J = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
@@ -128,6 +128,8 @@ for ss in range(0, N):#ss: simualtion step
     J_bR = np.zeros((3,18))
     dJdq_bp = np.zeros(3)
     dJdq_bR = np.zeros(3)
+    # here
+    #
     frame_id = robot.model.getFrameId("trunk")
     H = robot.framePlacement(q[:,ss], frame_id, False)
     x_bp= H.translation # take the 3d position of the end-effector
@@ -140,7 +142,7 @@ for ss in range(0, N):#ss: simualtion step
     dx_bR_des = np.array([0.0,0.0,0.0])
     # position
     traj_p,traj_dp,traj_ddp = local_plan.body_traj_update(conf.dt)
-    x_bp_des = np.array([traj_p[0],traj_dp[1],0.32])
+    x_bp_des = np.array([traj_p[0],traj_dp[1],0.30])
     dx_bp_des = np.array([traj_dp[0],traj_dp[1],0])
     ddx_bp_des = np.array([traj_ddp[0],traj_ddp[1],0])
     #here is contact
@@ -234,7 +236,7 @@ for ss in range(0, N):#ss: simualtion step
         f2 = beta_st - B_st@inv(R)@Q_c.T@h
 
         #task4
-        Kp_sw = 1500
+        Kp_sw = 750
         Kd_sw = 2*sqrt(Kp_sw)
         A4 = np.hstack([J_sw,np.zeros((3*(4-n_contact),12))])
         b4 = -dJdq_sw+Kp_sw*(p_sw_des-p_sw)+Kd_sw*(dp_sw_des-dp_sw)+ddp_sw_des
