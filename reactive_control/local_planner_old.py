@@ -70,24 +70,20 @@ def traj_2seg_spline(p_s,p_e,T,v):
 
 class local_planner:
     time_factor = 1.0 # the time of a period of motion
+    stance_phase = 0.75# the phase of stance 
+    swing_phase = 0.25# the time of swing 
     contact = [True,True,True,True]# [FL,FR, RL,RR] follow this sequence, True is in contact, False means in swing phase
     phase = [0,0,0,0]#  when in contact the phase decreasing for 0.75 to 0, when in swing the phase increasing for 0 to 0.25 seconds have 
+    current_phi = 0#contact schedule phase 
+    lift_off = [0.05,0.55,0.7,0.2]# the lift off event time!
     first_stand = [True,True,True,True]
     first_swing = [False,False,False,False]
     next_foot =np.zeros((4,3))
     swing_coeff = np.zeros((4,36))
     #change the force by the phase
-    def __init__(self,conf,T,dt):
-        self.stance_phase = 0.75# the phase of stance 
-        self.swing_phase = 0.25# the time of swing 
-        self.lift_off = np.array([0.05,0.55,0.7,0.2])# the lift off event time!
-        self.touch_down = self.lift_off+self.swing_phase
-        self.touch_down *=T
-        self.lift_off *=T
+    def __init__(self,conf):
+        self.touch_down = [self.lift_off[i] + self.swing_phase for i in range(4)]#the touch down event time
         self.conf = conf
-        self.N = T/dt
-        self.iter_time = np.linspace(0,T,N) 
-        self.cur = 0
         return
     
     
@@ -96,16 +92,16 @@ class local_planner:
     """
     foot: np.array, shape(3,4)
     """
-    def update(self):
-        self.cur +=1
-        if self.cur>=N:
-            self.cur = 0
+    def update(self,dt,foot,hip,v):
+        self.current_phi +=dt/self.time_factor
+        if self.current_phi > 1.0:
+            self.current_phi = 0.0
         for i in range(4):
             if self.current_phi > self.lift_off[i] and self.current_phi < self.touch_down[i]:
                 if self.first_swing[i] :
                     #do some thing
                     #2. get the coefficient of the swing trajectory 
-                    # self.swing_coeff[i] = traj_2seg_spline(foot[i],self.next_foot[i],self.swing_phase*self.time_factor*0.5,v)
+                    self.swing_coeff[i] = traj_2seg_spline(foot[i],self.next_foot[i],self.swing_phase*self.time_factor*0.5,v)
                     #plan
                     self.first_swing[i]  = False
                 self.contact[i] = False
@@ -119,10 +115,9 @@ class local_planner:
                     #plan
                     self.first_stand[i]  = False
                 self.first_swing[i] = True
-                # self.next_foot[i] = np.array([hip[i][0]+1.5*v[0]*self.stance_phase*self.time_factor/2.0,hip[i][1]+v[1]*self.stance_phase*self.time_factor/2.0,foot[i][2]])
+                self.next_foot[i] = np.array([hip[i][0]+1.5*v[0]*self.stance_phase*self.time_factor/2.0,hip[i][1]+v[1]*self.stance_phase*self.time_factor/2.0,foot[i][2]])
                 self.phase[i] = (self.time_factor-self.current_phi+self.lift_off[i])*self.time_factor \
                     if self.current_phi > self.lift_off[i] else (self.lift_off[i]-self.current_phi)*self.time_factor
-        
 
     def in_contact(self,leg):
         return self.contact[leg]
@@ -196,7 +191,7 @@ class local_planner:
 if __name__ == "__main__":
     import main_1_conf as conf
     import time
-    local_plan  = local_planner (conf,1,conf.dt)
+    local_plan  = local_planner (conf)
     N = int(conf.T_SIMULATION/conf.dt)      
     PRINT_N = int(conf.PRINT_T/conf.dt)
     t = 0.0

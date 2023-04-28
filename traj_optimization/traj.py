@@ -57,7 +57,10 @@ def Q_traj(Tm,time:np.array,p:np.array):
         a_ +=Tm(time[i]).reshape(-1)*p[i]
     return Q_,a_
  
-
+#suppose that the time dt between each trajetory point is dt
+#1.regulation
+#2.deviation for last splines
+#3.dynamic equation,pelnty of equation, so it takes long time to slove this equation
 def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
     """
         p: all the sample points of postion for each segment part,structure like this [[],[]]
