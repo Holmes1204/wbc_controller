@@ -16,6 +16,10 @@ from numpy.linalg import matrix_rank as rank,inv
 from traj_optimization.traj import traj_opt,traj_show
 from math import sqrt
 import local_planner_conf as conf
+from copy import deepcopy
+
+
+
 def nt(t):
     return np.array([pow(t,5),pow(t,4),pow(t,3),pow(t,2),t,1]) 
 def dnt(t):
@@ -74,8 +78,9 @@ def swing_foot_traj_get(t,T,coeff0,coeff1,coeff2):
     z = T_all(t)@coeff2[:6] if t < T/2 else T_all(t-T/2)@coeff2[6:]
     return np.array([x[0],y[0],z[0]]),np.array([x[1],y[1],z[1]]),np.array([x[2],y[2],z[2]])
 
-def plot_convex_shape(vertices, color='k'):
+def plot_convex_shape(vertices_, color='k'):
     """Plot a convex shape given its vertices using matplotlib."""
+    vertices = deepcopy(vertices_)
     for i in range(len(vertices)-1,-1,-1):
         if vertices[i] is None:
             vertices.pop(i)
@@ -87,12 +92,48 @@ def plot_convex_shape(vertices, color='k'):
     y.append(vertices[0][1])  # Add the first vertex to close the shape
     plt.plot(x, y, color=color)
 
+def plot_convex_quiver(vertices,edge=None, color='k'):
+    """Plot a convex shape and its normal vector"""
+    num_vertices = len(vertices)
+    x = [vertices[i][0] for i in range(num_vertices)]
+    y = [vertices[i][1] for i in range(num_vertices)]
+    x.append(vertices[0][0])  # Add the first vertex to close the shape
+    y.append(vertices[0][1])  # Add the first vertex to close the shape
+    midx = [(x[i]+x[i+1])/2.0 for i in range(len(x)-1)]
+    midy = [(y[i]+y[i+1])/2.0 for i in range(len(y)-1)]
+    plt.plot(x, y, color=color)
+    if edge is not None:
+        plt.quiver(midx,midy,edge[:,0],edge[:,1],color='k')
+
+
+
+
+
 
 def reduce_convex(polygon_set,s=0.025,w=0.025):
     """reduce the shape of the support polygons"""
+    def calcualte_p(num,modified_vertex,origin_vertex):
+        c = np.zeros(num)
+        vec_n = np.zeros((num,2))
+        for i in range(num):
+            direct = origin_vertex[(i + 1) % num] - origin_vertex[i]
+            normal = np.array([direct[1], -direct[0]])#inside polygons direct
+            normal /= np.linalg.norm(normal)
+            modified_vertex[i] +=s*normal
+            vec_n[i] = normal
+            c[i] = -normal@modified_vertex[i]
+            # modified_vertex[(i + 1) % num] +=s*normal
+        for i in range(num):
+            modified_vertex[(i+1)%num] = -np.linalg.inv(vec_n[[i,(i+1)% num]])@c[[i,(i+1)% num]]
+        reduce_polygon.append((modified_vertex,duration))
+        edge.append(np.hstack([vec_n,c.reshape(1,-1).T]))
+
+    #
+    polygons_ = deepcopy(polygon_set)
     reduce_polygon = []
+    edge = []
     #get the normal vector and the bias of each edge
-    for [vertex,duration] in polygon_set:
+    for [vertex,duration] in polygons_:
         vertex_ = []
         new_vertex = []
         for k in vertex:
@@ -101,30 +142,19 @@ def reduce_convex(polygon_set,s=0.025,w=0.025):
                 vertex_.append(k.copy())
         num_vertices = len(new_vertex)
         if num_vertices>2:
-            c = np.zeros(num_vertices)
-            vec_n = np.zeros((num_vertices,2))
-            for i in range(num_vertices):
-                direct = vertex_[(i + 1) % num_vertices] - vertex_[i]
-                normal = np.array([direct[1], -direct[0]])#inside polygons direct
-                normal /= np.linalg.norm(normal)
-                new_vertex[i] +=s*normal
-                vec_n[i] = normal
-                c[i] = -normal@new_vertex[i]
-                # new_vertex[(i + 1) % num_vertices] +=s*normal
-            for i in range(num_vertices):
-                new_vertex[i] = -np.linalg.inv(vec_n[[i,(i+1)% num_vertices]])@c[[i,(i+1)% num_vertices]]
-            reduce_polygon.append((new_vertex,duration))
+            calcualte_p(num_vertices,new_vertex,vertex_)
         else:
             direct = new_vertex[1] - new_vertex[0]
             direct /=np.linalg.norm(direct)
             normal = np.array([direct[1], -direct[0]])#inside polygons direct
             normal /= np.linalg.norm(normal)
-            v1 = new_vertex[0]+w*normal+s*direct
-            v2 = new_vertex[1]+w*normal-s*direct
-            v3 = new_vertex[1]-w*normal-s*direct
-            v4 = new_vertex[0]-w*normal+s*direct
-            reduce_polygon.append(([v1,v2,v3,v4],duration))
-    return reduce_polygon
+            v1 = new_vertex[0]+(s+w)*normal
+            v2 = new_vertex[0]-(s+w)*normal
+            v3 = new_vertex[1]-(s+w)*normal
+            v4 = new_vertex[1]+(s+w)*normal
+            ver_ = [v1,v2,v3,v4]
+            calcualte_p(4,deepcopy(ver_),ver_)
+    return reduce_polygon,edge
 
 
 class local_planner:
@@ -202,13 +232,16 @@ class local_planner:
         
     #event based
     def get_support_polygon(self,foot,next_foot):
+        #this only used in the first start point
         t = 0.0
         a = list(self.lift_off)
         b = list(self.touch_down)
         origin_a = a.copy()
         origin_b = b.copy()
         support_polygon = []
-        foot_ = list(foot)
+        foot_ = list(foot.copy())
+        next_foot_ =next_foot.copy()
+        #
         while len(a)>0 or len(b)>0:
             if len(a)>0 and len(b)>0:
                 a_min = min(a)
@@ -218,22 +251,22 @@ class local_planner:
                     a.remove(a_min )
                     dt = a_min-t
                     t = a_min
-                    support_polygon.append([foot_.copy(),dt])
+                    support_polygon.append([deepcopy(foot_),dt])
                     foot_[index_] = None
                 else:
                     index_ = origin_b.index(b_min)
                     b.remove(b_min)
                     dt = b_min-t
                     t = b_min
-                    support_polygon.append([foot_.copy(),dt])
-                    foot_[index_] = next_foot[index_,:]
+                    support_polygon.append([deepcopy(foot_),dt])
+                    foot_[index_] = next_foot_[index_,:]
             elif len(a)>0:
                 a_min = min(a)
                 index_ = origin_a.index(a_min)
                 a.remove(a_min )
                 dt = a_min-t
                 t = a_min
-                support_polygon.append([foot_.copy(),dt])
+                support_polygon.append([deepcopy(foot_),dt])
                 foot_[index_] = None
             elif len(b)>0:
                 b_min = min(b)
@@ -241,10 +274,10 @@ class local_planner:
                 b.remove(b_min)
                 dt = b_min-t
                 t = b_min
-                support_polygon.append([foot_.copy(),dt])
-                foot_[index_] = next_foot[index_,:]
-        support_polygon.append([foot_.copy(),T-t])
-        return support_polygon
+                support_polygon.append([deepcopy(foot_),dt])
+                foot_[index_] = next_foot_[index_,:]
+        support_polygon.append([deepcopy(foot_),T-t])
+        return deepcopy(support_polygon)
 
 
     def print(self):
@@ -282,30 +315,36 @@ class local_planner:
         traj_show(self.duration,self.dim,self.coeff)
 
 
-def print_each_support_polygon(polys_1,polys_2):
+def print_each_support_polygon(polys_1,polys_2,edge=None):
         for i in range(len(polys_1)):
             plt.figure()
+            plt.title("polygon_"+str(i))
             plot_convex_shape(polys_1[i][0])
-            plot_convex_shape(polys_2[i][0],'r')
+            if edge is not None:
+                plot_convex_quiver(polys_2[i][0],edge[i],'r')
+            else:
+                plot_convex_quiver(polys_2[i][0],None,'r')
             plt.grid()
-            plt.xlim([-0.2,0.2])
-            plt.ylim([-0.2,0.2])
+            # plt.xlim([-0.2,0.2])
+            # plt.ylim([-0.2,0.2])
 
 
-def print_all_support_polygon(polys_1,polys_2):
+def print_all_support_polygon(polys_1,polys_2,edge=None):
         plt.figure()
         for i in range(len(polys_1)):
             plot_convex_shape(polys_1[i][0])
-            plot_convex_shape(polys_2[i][0],'b')
+            if edge is not None:
+                plot_convex_quiver(polys_2[i][0],edge[i],'r')
+            else:
+                plot_convex_quiver(polys_2[i][0],None,'r')
             plt.grid()
-            plt.xlim([-0.2,0.2])
-            plt.ylim([-0.2,0.2])
+            # plt.xlim([-0.2,0.2])
+            # plt.ylim([-0.2,0.2])
 
 
 if __name__ == "__main__":
     import time
     N = int(conf.T_SIMULATION/conf.dt)+1  
-    N = 1    
     PRINT_N = int(conf.PRINT_T/conf.dt)
     t = 0.0
     #
@@ -327,9 +366,11 @@ if __name__ == "__main__":
     v = np.zeros(n_dim)
     a = np.zeros(n_dim)
     p0 = np.array([0.0,0.])
+    v0 = np.array([0.5,0.])
     p_end = np.array([1.,0.])
     #
     p = p0
+    v = v0
     #
     kp = 100
     kd = 2*sqrt(kp)
@@ -343,9 +384,13 @@ if __name__ == "__main__":
                      [0.2,-0.1],
                      [-0.2,-0.1],
                      [-0.2,0.1]])
+    
     for i in range(4):
         hip[i,:] = p+bias[i,:]
+    
     foot = hip.copy()
+    h = 0.3
+    g = 9.8
     for ss in range(N):
         #record the data
         pb[:,ss] = p
@@ -364,59 +409,65 @@ if __name__ == "__main__":
                 foot[j,:] = local_plan.swing_foot_traj(j)[:2]
 
 
-        # 1. plot the convex polygon , done
-        # 2. add the ZMP dynamic Model and get the coefficients
-        support_polygon = local_plan.get_support_polygon(foot,local_plan.next_foot)
-   
+        #1. plot the convex polygon , done
+        if ss == 1:
+            support_polygon = local_plan.get_support_polygon(foot,local_plan.next_foot)
+            shrink_polygon,edge = reduce_convex(support_polygon)
+            #2. add the ZMP dynamic Model and get the coefficients
+            #  
+
+
         #simplified model,use pd forward controller that can follow the traj
         a = kp*(p_end-p)+kd*(-v)
         p += v*conf.dt
         v += a*conf.dt
         t += conf.dt
+
+        
     print("time eslaped",time.time()-time_start)
-    a = reduce_convex(support_polygon)
-    print_each_support_polygon(support_polygon,a)
-    print_all_support_polygon(support_polygon,a)
-    # # figure p
-    # plt.figure()
-    # plt.plot(discrete_time,pb[0],label='p_x')
-    # plt.plot(discrete_time,pb[1],label='p_y')
-    # plt.grid()
-    # plt.legend()
-    # #figure v
-    # plt.figure()
-    # plt.plot(discrete_time,dpb[0],label='v_x')
-    # plt.plot(discrete_time,dpb[1],label='v_y')
-    # plt.grid()
-    # plt.legend()
-    # #figure a
-    # plt.figure()
-    # plt.plot(discrete_time,ddpb[0],label='a_x')
-    # plt.plot(discrete_time,ddpb[1],label='a_y')
-    # plt.grid()
-    # plt.legend()
-    # #figure 2
-    # plt.figure()
-    # plt.plot(pb[0],pb[1],label='pos')
-    # plt.grid()
-    # plt.legend()
-    # #foot
-    # plt.figure()
-    # plt.plot(discrete_time,foot_data[0,0],label='FL_f_x')
-    # plt.plot(discrete_time,foot_data[0,1],label='FL_f_y')
-    # plt.plot(discrete_time,foot_data[1,0],label='FR_f_x')
-    # plt.plot(discrete_time,foot_data[1,1],label='FR_f_y')
-    # plt.plot(discrete_time,foot_data[2,0],label='RR_f_x')
-    # plt.plot(discrete_time,foot_data[2,1],label='RR_f_y')
-    # plt.plot(discrete_time,foot_data[3,0],label='RL_f_x')
-    # plt.plot(discrete_time,foot_data[3,1],label='RL_f_y')
-    # plt.grid()
-    # plt.legend()
-    # #
-    # plt.figure()
-    # plt.plot(foot_data[0,0],foot_data[0,1],label='FL_foot')
-    # plt.grid()
-    # plt.legend()
+
+    print_each_support_polygon(support_polygon,shrink_polygon,edge)
+    print_all_support_polygon(support_polygon,shrink_polygon)
+    # figure p
+    plt.figure()
+    plt.plot(discrete_time,pb[0],label='p_x')
+    plt.plot(discrete_time,pb[1],label='p_y')
+    plt.grid()
+    plt.legend()
+    #figure v
+    plt.figure()
+    plt.plot(discrete_time,dpb[0],label='v_x')
+    plt.plot(discrete_time,dpb[1],label='v_y')
+    plt.grid()
+    plt.legend()
+    #figure a
+    plt.figure()
+    plt.plot(discrete_time,ddpb[0],label='a_x')
+    plt.plot(discrete_time,ddpb[1],label='a_y')
+    plt.grid()
+    plt.legend()
+    #figure 2
+    plt.figure()
+    plt.plot(pb[0],pb[1],label='pos')
+    plt.grid()
+    plt.legend()
+    #foot
+    plt.figure()
+    plt.plot(discrete_time,foot_data[0,0],label='FL_f_x')
+    plt.plot(discrete_time,foot_data[0,1],label='FL_f_y')
+    plt.plot(discrete_time,foot_data[1,0],label='FR_f_x')
+    plt.plot(discrete_time,foot_data[1,1],label='FR_f_y')
+    plt.plot(discrete_time,foot_data[2,0],label='RR_f_x')
+    plt.plot(discrete_time,foot_data[2,1],label='RR_f_y')
+    plt.plot(discrete_time,foot_data[3,0],label='RL_f_x')
+    plt.plot(discrete_time,foot_data[3,1],label='RL_f_y')
+    plt.grid()
+    plt.legend()
+    #
+    plt.figure()
+    plt.plot(foot_data[0,0],foot_data[0,1],label='FL_foot')
+    plt.grid()
+    plt.legend()
     plt.show()
 
 

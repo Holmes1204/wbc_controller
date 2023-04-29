@@ -28,6 +28,17 @@ def dnt(t):
 def T(t):
     return diagm([nt(t),ddnt(t),dnt(t)])
 
+def zmp(t):
+    z =  0.3
+    g =  9.8
+    ddz=  0.0
+    matrix = np.array([1,-z/(g+ddz)])@np.vstack([nt(t),ddnt(t)])
+    matrix.resize(1,6)
+    return diagm([matrix,matrix])
+
+
+    
+
 def diagm(matlist: list,rcol = 0):
     mat  = None
     for it in matlist :
@@ -61,7 +72,13 @@ def Q_traj(Tm,time:np.array,p:np.array):
 #1.regulation
 #2.deviation for last splines
 #3.dynamic equation,pelnty of equation, so it takes long time to slove this equation
-def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
+""" 
+for some problem provide the solutions
+min 1/2 x^T G x  -a^Tx
+s.t. 
+    C.T x>= b
+"""
+def traj_opt(duration,stp,dstp,ddstp,fp,edge,p=None,dp=None,ddp=None):
     """
         p: all the sample points of postion for each segment part,structure like this [[],[]]
         dp: all the sample points of postion for each segment part,structure like this [[],[]]
@@ -76,6 +93,9 @@ def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
     delta =0.01#in meter
     n_seg = len(duration)
     dim  = len(stp)#
+    h =0.3
+    g =9.8
+
     for i in range(n_seg):
         #for the sampling of the line, we have some others formulations
         #for the qp slover
@@ -95,17 +115,25 @@ def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
         beq_sm=[] 
         Ciq_seg=[]
         biq_seg=[]
-
+        zmp_N = 1
+        Ciq_zmp = []
+        biq_zmp =[]
         if i == 0 :#first segment
             for j in range(dim):
                 Q_seg.append(Acc(duration[i]))
                 a_seg.append(np.zeros(6))
                 Ceq_seg.append(vstack([nt(0),dnt(0),ddnt(0)]))
                 beq_seg.append(hstack([stp[j],dstp[j],ddstp[j]]))
+            for t_ in np.linspace(0,duration[i],zmp_N):
+                Ciq_zmp.append(edge[i][:,:2]@zmp(t_))
+                biq_zmp.append(-edge[i][:,2])
+            Ciq_ = vstack(Ciq_zmp)
+            biq_ = hstack(biq_zmp)
             Q_=diagm(Q_seg)
             a_=hstack(a_seg)
             Ceq_=diagm(Ceq_seg)
             beq_= hstack(beq_seg)
+
 
         elif i > 0 and i < n_seg-1:#middle segment
             for j in range(dim):
@@ -116,7 +144,11 @@ def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
                                     hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)]),
                                     hstack([ddnt(duration[i-1]),np.zeros((1,6*(dim-1))),-ddnt(0)])]))
                 beq_sm.append(hstack([0,0,0]))
-
+            for t_ in np.linspace(0,duration[i],zmp_N):
+                Ciq_zmp.append(edge[i][:,:2]@zmp(t_))
+                biq_zmp.append(-edge[i][:,2])
+            Ciq_ = vstack(Ciq_zmp)
+            biq_ = hstack(biq_zmp)
             Q_=diagm(Q_seg)
             a_=hstack(a_seg)
             Ceq_sm_=diagm(Ceq_sm,6*dim)
@@ -124,7 +156,6 @@ def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
 
 
         elif i == n_seg-1:#final segment 
-            
             for j in range(dim):
                 # coeff = 1
                 # coeff_1= 0.1
@@ -140,10 +171,15 @@ def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
                 Ciq_seg.append(vstack([nt(duration[i]),-nt(duration[i])]))
                 biq_seg.append(hstack([fp[j]-delta,-(fp[j]+delta)]))
             #
+            for t_ in np.linspace(0,duration[i],zmp_N):
+                Ciq_zmp.append(edge[i][:,:2]@zmp(t_))
+                biq_zmp.append(-edge[i][:,2])
+            Ciq_ = vstack(Ciq_zmp)
+            biq_ = hstack(biq_zmp)
             Q_=diagm(Q_seg)
             a_=hstack(a_seg)
-            Ciq_ = diagm(Ciq_seg)
-            biq_ = hstack(biq_seg)
+            Ciq_ = vstack([Ciq_,diagm(Ciq_seg)])
+            biq_ = hstack([biq_,hstack(biq_seg),])
             Ceq_sm_=diagm(Ceq_sm,6*dim)
             beq_sm_= hstack(beq_sm)
 
@@ -168,8 +204,8 @@ def traj_opt(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
     eqns = Ceq_all.shape[0]
     C = vstack([Ceq_all,Ciq_all])
     b = hstack([beq_all,biq_all])
-    # x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
-    x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
+    x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
+    # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
     # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
     return x
 
@@ -233,7 +269,6 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
                                     hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)]),
                                     hstack([ddnt(duration[i-1]),np.zeros((1,6*(dim-1))),-ddnt(0)])]))
                 beq_sm.append(hstack([0,0,0]))
-
             Q_=diagm(Q_seg)
             a_=hstack(a_seg)
             Ceq_sm_=diagm(Ceq_sm,6*dim)
@@ -285,8 +320,8 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
     eqns = Ceq_all.shape[0]
     C = vstack([Ceq_all,Ciq_all])
     b = hstack([beq_all,biq_all])
-    # x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
-    x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
+    x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
+    # x = qp_solve(Q_all, -a_all, -Ciq_all.T, -biq_all, Ceq_all.T, beq_all, solver="qpswift")
     # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
     return x
 
@@ -332,4 +367,3 @@ def traj_show(duration,dim,coeff):
     plt.figure()
     plt.plot(traj_p[0,:],traj_p[1,:])
     plt.grid()
-    plt.show()
