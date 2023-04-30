@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import time
 from math import sqrt,sin,pi
 import sys
-sys.path.append("../")
+sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
 import utils.plot_utils as plut
 from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator
@@ -25,10 +25,10 @@ PLOT_ARM_JOINT_POS = 1
 PLOT_DOG_TORQUES = 1
 PLOT_ARM_TORQUES = 1
 
-rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("../a1_description/urdf/a1.urdf", "../",pin.JointModelFreeFlyer())
+rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("./a1_description/urdf/a1_kinova.urdf", ".",pin.JointModelFreeFlyer())
 robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)
 simu = RobotSimulator(conf, robot)
-local_plan  = local_planner ()
+local_plan  = local_planner(conf,1)
 simu.add_contact_surface("ground",conf.ground_pos,conf.ground_normal,
                          conf.ground_Kp,conf.ground_Kd,conf.ground_mu)
 [simu.add_candidate_contact_point(foot) for foot in conf.Foot_frame]
@@ -69,7 +69,7 @@ B_ = np.array([[ 1, 0,-foot_mu],
                [ 0,-1,-foot_mu],
                [ 0, 0,-1],
                [ 0, 0, 1]])
-beta_ =np.array([0,0,0,0,0,100])
+beta_ =np.array([0,0,0,0,0,120])
 S = np.zeros((nt,nv))
 S[:,6:]=np.eye(nt)
 #some variables
@@ -299,9 +299,10 @@ for ss in range(0, N):#ss: simualtion step
     F = inv(R)@Q_c.T@(M@out[:nv]+h-S.T@out[nv:])
     
     tau[:,ss] = np.hstack([np.zeros(6),out[nv:]])
-    local_plan.update(conf.dt,p_f,p_h,dx_bp)
+    local_plan.update(conf.dt,p_f,p_h,dx_bp,dx_bp)
     # send joint torques to simulator
     simu.simulate(tau[:,ss], conf.dt, conf.ndt)
+    
     if ss%PRINT_N == 0:
         print("Time %.3f"%(t))
     t += conf.dt

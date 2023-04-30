@@ -13,7 +13,7 @@ sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
-from traj_optimization.traj import traj_opt,traj_show
+from traj_optimization.traj import traj_opt,traj_show,traj_opt_regular
 from math import sqrt
 import local_planner_conf as conf
 from copy import deepcopy
@@ -178,7 +178,9 @@ class local_planner:
         self.next_foot =np.zeros((4,2))
         self.coeff0 = np.zeros((4,6))
         self.coeff1 = np.zeros((4,6))
+        self.dim  = 2
         self.coeff2 = np.zeros((4,12))
+        self.traj_time = 0
         return
     
     
@@ -188,9 +190,6 @@ class local_planner:
     foot: np.array, shape(3,4)
     """
     def update(self,dt,foot,hip,v_ref,v_hip):
-        self.cur +=dt
-        if self.cur>self.T:
-            self.cur = 0.0
         for i in range(4):
             if self.cur > self.lift_off[i] and self.cur < self.touch_down[i]:
                 if self.first_swing[i] :
@@ -211,9 +210,12 @@ class local_planner:
                     #plan
                     self.first_stand[i]  = False
                 self.first_swing[i] = True
-                self.next_foot[i] = np.array([hip[i][0]+v[0]*self.stance_phase/2.0,hip[i][1]+v[1]*self.stance_phase/2.0])
+                self.next_foot[i] = np.array([hip[i][0]+v_ref[0]*self.stance_phase/2.0,hip[i][1]+v_ref[1]*self.stance_phase/2.0])
                 self.phase[i] = (self.T-self.cur+self.lift_off[i]) \
                     if self.cur > self.lift_off[i] else (self.lift_off[i]-self.cur)
+        self.cur +=dt
+        if self.cur>self.T:
+            self.cur = 0.0
 
 
     def in_contact(self,leg):
@@ -228,7 +230,7 @@ class local_planner:
 
     def swing_foot_traj(self,leg):
         p,v,a = swing_foot_traj_get(self.phase[leg],self.swing_phase,self.coeff0[leg],self.coeff1[leg],self.coeff2[leg])
-        return p
+        return p,v,a
         
     #event based
     def get_support_polygon(self,foot,next_foot):
@@ -264,7 +266,7 @@ class local_planner:
                 a_min = min(a)
                 index_ = origin_a.index(a_min)
                 a.remove(a_min )
-                dt = a_min-tplt.grid()
+                dt = a_min-t
                 t = a_min
                 support_polygon.append([deepcopy(foot_),dt])
                 foot_[index_] = None
@@ -276,7 +278,7 @@ class local_planner:
                 t = b_min
                 support_polygon.append([deepcopy(foot_),dt])
                 foot_[index_] = next_foot_[index_,:]
-        support_polygon.append([deepcopy(foot_),T-t])
+        support_polygon.append([deepcopy(foot_),self.T-t])
         return deepcopy(support_polygon)
 
 
@@ -286,12 +288,11 @@ class local_planner:
     
 
     def body_traj_plan(self):
-        self.duration =10*[0.05,0.15,0.10,0.15,0.10,0.15,0.10,0.15,0.05]
+        self.duration =[0.05,0.15,0.10,0.15,0.10,0.15,0.10,0.15,0.05]
         self.cum_duration = np.cumsum(self.duration)
         self.traj_tot_time = sum(self.duration)
-        self.dim  = 2
         #traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,v=None,a=None):
-        self.coeff = traj_opt(self.duration,[0,0],[0,0],[0,0],[2.5,.0])
+        self.coeff = traj_opt_regular(self.duration,[0,0],[0,0],[0,0],[0.2,.0])
         self.traj_time = 0
         
     def body_traj_update(self,dt):
@@ -410,7 +411,7 @@ if __name__ == "__main__":
 
 
         #1. plot the convex polygon , done
-        if ss == 1:
+        if ss == 0:
             support_polygon = local_plan.get_support_polygon(foot,local_plan.next_foot)
             shrink_polygon,edge = reduce_convex(support_polygon)
             #2. add the ZMP dynamic Model and get the coefficients

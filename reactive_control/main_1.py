@@ -14,7 +14,7 @@ import main_1_conf as conf
 import solutions.main_1_solution as solution
 from example_robot_data.robots_loader import load
 import pinocchio as pin
-from local_planner import local_planner
+from local_planner import local_planner,reduce_convex
 from solutions.WBC_HO import task,WBC_HO
 
 
@@ -31,9 +31,8 @@ PLOT_DOG_TORQUES = 0
 rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("./a1_description/urdf/a1.urdf", ".",pin.JointModelFreeFlyer())
 robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)   
 simu = RobotSimulator(conf, robot)
-local_plan  = local_planner(conf)
-local_plan.body_traj_plan()
-local_plan.body_traj_show()
+local_plan  = local_planner(conf,1)
+
 simu.add_contact_surface("ground",conf.ground_pos,conf.ground_normal, 
                          conf.ground_Kp,conf.ground_Kd,conf.ground_mu)
 [simu.add_candidate_contact_point(foot) for foot in conf.Foot_frame]
@@ -83,7 +82,7 @@ for ss in range(0, N):#ss: simualtion step
     # this is not so good for the real world
 
 
-
+    
     # J6 = robot.frameJacobian(q[:,ss], frame_id, False)
     # J = J6[:3,:]            # take first 3 rows of J6
     # dJdq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False).linear
@@ -140,7 +139,16 @@ for ss in range(0, N):#ss: simualtion step
     # attitude
     x_bR_des = np.eye(3)
     dx_bR_des = np.array([0.0,0.0,0.0])
+
+
+
     # position
+    local_plan.update(conf.dt,p_f,p_h,v_b.linear,v_b.linear)
+    if ss == 0:
+        local_plan.body_traj_plan()
+        support_polygon = local_plan.get_support_polygon(p_f[:,:2],local_plan.next_foot)
+        shrink_polygon,edge = reduce_convex(support_polygon)
+    #
     traj_p,traj_dp,traj_ddp = local_plan.body_traj_update(conf.dt)
     x_bp_des = np.array([traj_p[0],traj_dp[1],0.30])
     dx_bp_des = np.array([traj_dp[0],traj_dp[1],0])
@@ -160,7 +168,7 @@ for ss in range(0, N):#ss: simualtion step
 
     D2 = np.zeros((n_contact*B_.shape[0],n_contact*B_.shape[1]))
     f2 = np.zeros(n_contact*beta_.shape[0])
-
+    #update the all plan information
     # n_contact =4
     if n_contact == 4:
         #first contact
@@ -207,9 +215,7 @@ for ss in range(0, N):#ss: simualtion step
                 dJdq_sw[3*j_sw:3*j_sw+3] =  dJdq_f[3*j:3*j+3]
                 p_sw[3*j_sw:3*j_sw+3]=p_f[j]
                 dp_sw[3*j_sw:3*j_sw+3] = v_f[j]
-                p_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_pos(j)
-                dp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_vel(j)
-                ddp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_acc(j)
+                p_sw_des[3*j_sw:3*j_sw+3],dp_sw_des[3*j_sw:3*j_sw+3],ddp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj(j)
                 j_sw +=1
         #some tricky copied 
 
@@ -217,7 +223,8 @@ for ss in range(0, N):#ss: simualtion step
         if local_plan.in_contact(0):
            fx_des[:,ss] = p_f[0,:]
         else:
-           fx_des[:,ss] = local_plan.swing_foot_traj_pos(0)
+           
+           fx_des[:,ss],_,_ = local_plan.swing_foot_traj(0)
         #task1
         Q,R = np.linalg.qr(J_st.T,'complete')
         R = R[:R.shape[1],:]
@@ -244,8 +251,6 @@ for ss in range(0, N):#ss: simualtion step
         tasks.append(task(A1,b1,D1,f1,0))
         tasks.append(task(A2,b2,D2,f2,1))
         tasks.append(task(A4,b4,None,None,2))
-
-
     else:
         J_sw = J_f
         dJdq_sw = dJdq_sw
@@ -288,8 +293,8 @@ for ss in range(0, N):#ss: simualtion step
     tau[:,ss] = np.hstack([np.zeros(6),out[18:]])
     # send joint torques to simulator
     simu.simulate(tau[:,ss], conf.dt, conf.ndt)
-    local_plan.update(conf.dt,p_f,p_h,v_b.linear)
     # print(tau[:,ss])
+
     if ss%PRINT_N == 0:
         print("Time %.3f"%(t))
     t += conf.dt
