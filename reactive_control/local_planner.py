@@ -165,7 +165,7 @@ class local_planner:
     def __init__(self,conf,T):
         self.stance_phase = 0.75# the phase of stance 
         self.swing_phase = 0.25# the time of swing 
-        self.lift_off = np.array([0.05,0.55,0.2,0.7])# the lift off event time!
+        self.lift_off = np.array([0.05,0.55,0.7,0.2])# the lift off event time!
         self.touch_down = self.lift_off+self.swing_phase
         self.touch_down *=T
         self.lift_off *=T
@@ -292,7 +292,7 @@ class local_planner:
         self.cum_duration = np.cumsum(self.duration)
         self.traj_tot_time = sum(self.duration)
         #traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,v=None,a=None):
-        self.coeff = traj_opt_regular(self.duration,[0,0],[0,0],[0,0],[0.2,.0])
+        self.coeff = traj_opt_regular(self.duration,[0,0],[0,0],[0,0],[0.1,.0])
         self.traj_time = 0
         
     def body_traj_update(self,dt):

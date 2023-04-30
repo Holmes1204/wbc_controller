@@ -63,7 +63,7 @@ B_ = np.array([[ 1, 0,-foot_mu],
                [ 0,-1,-foot_mu],
                [ 0, 0,-1],
                [ 0, 0, 1]])
-beta_ =np.array([0,0,0,0,0,100])
+beta_ =np.array([0,0,0,0,0,1000])
 
 for ss in range(0, N):#ss: simualtion step
     time_start = time.time()
@@ -146,11 +146,12 @@ for ss in range(0, N):#ss: simualtion step
     local_plan.update(conf.dt,p_f,p_h,v_b.linear,v_b.linear)
     if ss == 0:
         local_plan.body_traj_plan()
+        local_plan.body_traj_show()
         support_polygon = local_plan.get_support_polygon(p_f[:,:2],local_plan.next_foot)
         shrink_polygon,edge = reduce_convex(support_polygon)
     #
     traj_p,traj_dp,traj_ddp = local_plan.body_traj_update(conf.dt)
-    x_bp_des = np.array([traj_p[0],traj_dp[1],0.30])
+    x_bp_des = np.array([traj_p[0],traj_dp[1],0.32])
     dx_bp_des = np.array([traj_dp[0],traj_dp[1],0])
     ddx_bp_des = np.array([traj_ddp[0],traj_ddp[1],0])
     #here is contact
@@ -223,7 +224,6 @@ for ss in range(0, N):#ss: simualtion step
         if local_plan.in_contact(0):
            fx_des[:,ss] = p_f[0,:]
         else:
-           
            fx_des[:,ss],_,_ = local_plan.swing_foot_traj(0)
         #task1
         Q,R = np.linalg.qr(J_st.T,'complete')

@@ -11,7 +11,7 @@ from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator
 import main_2_conf as conf
 import pinocchio as pin
-from reactive_control.local_planner import local_planner 
+from reactive_control.local_planner import local_planner,reduce_convex
 from solutions.WBC_HO import task,WBC_HO
 
 print("".center(conf.LINE_WIDTH,'#'))       
@@ -20,10 +20,10 @@ print("".center(conf.LINE_WIDTH,'#'), '\n')
 
 PLOT_EE_POS = 1
 PLOT_BODY_POS = 1
-PLOT_DOG_JOINT_POS = 1
-PLOT_ARM_JOINT_POS = 1 
-PLOT_DOG_TORQUES = 1
-PLOT_ARM_TORQUES = 1
+PLOT_DOG_JOINT_POS = 0
+PLOT_ARM_JOINT_POS = 0 
+PLOT_DOG_TORQUES = 0
+PLOT_ARM_TORQUES = 0
 
 rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("./a1_description/urdf/a1_kinova.urdf", ".",pin.JointModelFreeFlyer())
 robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)
@@ -42,7 +42,7 @@ nt = conf.nt# number of direct motors
 N = int(conf.T_SIMULATION/conf.dt)      # number of time steps
 PRINT_N = int(conf.PRINT_T/conf.dt)
 
-t = 0.0
+t = 0.0 
 #
 #these will  keep the datum
 tau     = np.empty((robot.na, N))*nan    # joint torques
@@ -69,7 +69,7 @@ B_ = np.array([[ 1, 0,-foot_mu],
                [ 0,-1,-foot_mu],
                [ 0, 0,-1],
                [ 0, 0, 1]])
-beta_ =np.array([0,0,0,0,0,120])
+beta_ =np.array([0,0,0,0,0,1000])
 S = np.zeros((nt,nv))
 S[:,6:]=np.eye(nt)
 #some variables
@@ -95,25 +95,9 @@ for ss in range(0, N):#ss: simualtion step
     M = robot.mass(q[:,ss], False)
     h = robot.nle(q[:,ss], v[:,ss], False)#include gravity force
     g = robot.gravity(q[:,ss])
-    #
-
-    #here is contact
-    n_contact = local_plan.contact_num()
-    J_st = np.zeros((3*n_contact,nv))
-    dJdq_st = np.zeros(3*n_contact)
-    J_sw = np.zeros((3*(4-n_contact),nv))
-    dJdq_sw = np.zeros(3*(4-n_contact))
-
-    p_sw = np.zeros(3*(4-n_contact))
-    dp_sw = np.zeros(3*(4-n_contact))
-    p_sw_des = np.zeros(3*(4-n_contact))
-    dp_sw_des = np.zeros(3*(4-n_contact))
-    ddp_sw_des = np.zeros(3*(4-n_contact))
-
-    D2 = np.zeros((n_contact*B_.shape[0],n_contact*B_.shape[1]))
-    f2 = np.zeros(n_contact*beta_.shape[0])
-
-    #state feedback and Jacobian and djacobian@dq
+    #foot state feed back
+    p_h = np.zeros((4,3))
+    v_h = np.zeros((4,3))
     for j in range(len(conf.Foot_frame)) :
         tasks = []
         frame_id = robot.model.getFrameId(conf.Foot_frame[j])
@@ -126,16 +110,61 @@ for ss in range(0, N):#ss: simualtion step
         v_f[j,:] = v_frame.linear
         J_f[3*j:3*j+3,:] = J
         dJdq_f[3*j:3*j+3] = dJdq
-
-    p_h = np.zeros((4,3))
-    v_h = np.zeros((4,3))
     for j in range(len(conf.Hip_frame)) :
         frame_id = robot.model.getFrameId(conf.Hip_frame[j])
         H = robot.framePlacement(q[:,ss], frame_id, False)
         v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
         p_h[j,:] = H.translation+np.array([0.0,(-1)**j*0.084,0.0])
         v_h[j,:] = v_frame.linear
+    #the feedback part of the body
+    frame_id = robot.model.getFrameId("trunk")
+    H = robot.framePlacement(q[:,ss], frame_id, False)
+    v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
+    a_frame_no_ddq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False)
+    x_bp= H.translation # take the 3d position of the end-effector
+    x_bR = H.rotation
+    dx_bp = v_frame.linear # take linear part of 6d velocity
+    dx_bR = v_frame.angular
+    J_bp = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
+    dJdq_bp = a_frame_no_ddq.linear
+    J_bR = robot.frameJacobian(q[:,ss], frame_id, False)[3:,:]
+    dJdq_bR = a_frame_no_ddq.angular
+    #the feedback of the manipulator
+    frame_id = robot.model.getFrameId("j2s6s200_end_effector")
+    H = robot.framePlacement(q[:,ss], frame_id, False)
+    v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
+    a_frame_no_ddq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False)
+    x_mp= H.translation # take the 3d position of the end-effector
+    x_mR = H.rotation
+    dx_mp = v_frame.linear # take linear part of 6d velocity
+    dx_mR = v_frame.angular
+    J_mp = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
+    dJdq_mp = a_frame_no_ddq.linear
+    J_mR = robot.frameJacobian(q[:,ss], frame_id, False)[3:,:]
+    dJdq_mR = a_frame_no_ddq.angular
+    #----------feed back over---------
+    #foot update
+    local_plan.update(conf.dt,p_f,p_h,dx_bp,dx_bp)
+    if ss == 0:
+        local_plan.body_traj_plan()
+        local_plan.body_traj_show()
+        support_polygon = local_plan.get_support_polygon(p_f[:,:2],local_plan.next_foot)
+        shrink_polygon,edge = reduce_convex(support_polygon)
+    #
+    #here is contact
+    n_contact = local_plan.contact_num()
+    J_st = np.zeros((3*n_contact,nv))
+    dJdq_st = np.zeros(3*n_contact)
+    J_sw = np.zeros((3*(4-n_contact),nv))
+    dJdq_sw = np.zeros(3*(4-n_contact))
 
+    p_sw = np.zeros(3*(4-n_contact))
+    dp_sw = np.zeros(3*(4-n_contact))
+    p_sw_des = np.zeros(3*(4-n_contact))
+    dp_sw_des = np.zeros(3*(4-n_contact))
+    ddp_sw_des = np.zeros(3*(4-n_contact))
+    # D2 = np.zeros((n_contact*B_.shape[0],n_contact*B_.shape[1]))
+    # f2 = np.zeros(n_contact*beta_.shape[0])
     # n_contact =4
     if n_contact == 4:
         #first contact
@@ -182,9 +211,7 @@ for ss in range(0, N):#ss: simualtion step
                 dJdq_sw[3*j_sw:3*j_sw+3] =  dJdq_f[3*j:3*j+3]
                 p_sw[3*j_sw:3*j_sw+3]=p_f[j]
                 dp_sw[3*j_sw:3*j_sw+3] = v_f[j]
-                p_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_pos(j)
-                dp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_vel(j)
-                ddp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj_acc(j)
+                p_sw_des[3*j_sw:3*j_sw+3],dp_sw_des[3*j_sw:3*j_sw+3],ddp_sw_des[3*j_sw:3*j_sw+3] = local_plan.swing_foot_traj(j)
                 j_sw +=1
         #some tricky copied 
         #task1
@@ -203,9 +230,8 @@ for ss in range(0, N):#ss: simualtion step
         b2 = -dJdq_st
         D2 = B_st@inv(R)@Q_c.T@np.hstack([M,-S.T])
         f2 = beta_st - B_st@inv(R)@Q_c.T@h
-
         #task4
-        Kp_sw = 10
+        Kp_sw = 1000
         Kd_sw = 2*sqrt(Kp_sw)
         A4 = np.hstack([J_sw,np.zeros((3*(4-n_contact),nt))])
         b4 = -dJdq_sw+Kp_sw*(p_sw_des-p_sw)+Kd_sw*(dp_sw_des-dp_sw)+ddp_sw_des
@@ -213,8 +239,6 @@ for ss in range(0, N):#ss: simualtion step
         tasks.append(task(A1,b1,D1,f1,0))
         tasks.append(task(A2,b2,D2,f2,1))
         tasks.append(task(A4,b4,None,None,4))
-
-
     else:
         J_sw = J_f
         dJdq_sw = dJdq_sw
@@ -222,55 +246,23 @@ for ss in range(0, N):#ss: simualtion step
         b4 = -dJdq_sw+Kp_sw*(p_sw_des-p_sw)+Kd_sw*(dp_sw_des-dp_sw)
         tasks.append(task(A4,b4,None,None,3))
 
-
-    #the feedback part of the body
-    frame_id = robot.model.getFrameId("trunk")
-    H = robot.framePlacement(q[:,ss], frame_id, False)
-    v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
-    a_frame_no_ddq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False)
-    #state feedback
-    x_bp= H.translation # take the 3d position of the end-effector
-    x_bR = H.rotation
-    dx_bp = v_frame.linear # take linear part of 6d velocity
-    dx_bR = v_frame.angular
-    #Jacobian
-    J_bp = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
-    dJdq_bp = a_frame_no_ddq.linear
-    J_bR = robot.frameJacobian(q[:,ss], frame_id, False)[3:,:]
-    dJdq_bR = a_frame_no_ddq.angular
     #set reference
     Kp_bp = 10
     Kd_bp = 2*sqrt(Kp_bp)
     Kp_bR = 10
     Kd_bR = 2*sqrt(Kp_bR)
-    x_bp_des = np.array([0.0,0,0.32])
+    traj_p,traj_dp,traj_ddp = local_plan.body_traj_update(conf.dt)
+    x_bp_des = np.array([traj_p[0],traj_dp[1],0.32])
+    dx_bp_des = np.array([traj_dp[0],traj_dp[1],0])
+    ddx_bp_des = np.array([traj_ddp[0],traj_ddp[1],0])
     x_bR_des = np.eye(3)
-    dx_bp_des = np.array([0.0,0,0])
     dx_bR_des = np.array([0.0,0.0,0.0])
-    ddx_bp_des = np.array([0.0,0,0])
     #create task
     A3 = np.vstack([np.hstack([J_bp,np.zeros((3,nt))]),
                     np.hstack([J_bR,np.zeros((3,nt))])])
-    b3 = np.hstack([-dJdq_bp+Kp_bp*(x_bp_des-x_bp)+Kd_bp*(dx_bp_des-dx_bp),
+    b3 = np.hstack([-dJdq_bp+Kp_bp*(x_bp_des-x_bp)+Kd_bp*(dx_bp_des-dx_bp+ddx_bp_des),
                     -dJdq_bR+Kp_bR*(pin.log3(x_bR_des.dot(x_bR.T)))+Kd_bR*(dx_bR_des-dx_bR)])
     tasks.append(task(A3,b3,None,None,4))
-    #record to print 
-
-    #the feedback of the manipulator
-    frame_id = robot.model.getFrameId("j2s6s200_end_effector")
-    H = robot.framePlacement(q[:,ss], frame_id, False)
-    v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
-    a_frame_no_ddq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False)
-    #state feedback
-    x_mp= H.translation # take the 3d position of the end-effector
-    x_mR = H.rotation
-    dx_mp = v_frame.linear # take linear part of 6d velocity
-    dx_mR = v_frame.angular
-    #Jacobian
-    J_mp = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
-    dJdq_mp = a_frame_no_ddq.linear
-    J_mR = robot.frameJacobian(q[:,ss], frame_id, False)[3:,:]
-    dJdq_mR = a_frame_no_ddq.angular
     #set reference (world frame)
     Kp_mp = 10
     Kd_mp = 2*sqrt(Kp_mp)
@@ -299,7 +291,7 @@ for ss in range(0, N):#ss: simualtion step
     F = inv(R)@Q_c.T@(M@out[:nv]+h-S.T@out[nv:])
     
     tau[:,ss] = np.hstack([np.zeros(6),out[nv:]])
-    local_plan.update(conf.dt,p_f,p_h,dx_bp,dx_bp)
+
     # send joint torques to simulator
     simu.simulate(tau[:,ss], conf.dt, conf.ndt)
     
