@@ -264,7 +264,7 @@ class local_planner:
                 a_min = min(a)
                 index_ = origin_a.index(a_min)
                 a.remove(a_min )
-                dt = a_min-t
+                dt = a_min-tplt.grid()
                 t = a_min
                 support_polygon.append([deepcopy(foot_),dt])
                 foot_[index_] = None

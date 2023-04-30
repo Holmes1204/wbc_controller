@@ -5,8 +5,8 @@ from numpy.linalg import matrix_rank as rank,inv
 from numpy import hstack,vstack
 from qpsolvers import solve_qp as qp_solve
 
-def Acc(T,alpha=1e-8):
-    return np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
+def Acc(T,k=1,alpha=1e-8):
+    return k*np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
                      [40*pow(T,6),144/5*pow(T,5),18*pow(T,4),8*pow(T,3),0,0],
                      [120.0/5.0*pow(T,5),18*pow(T,4),12*pow(T,3),6*pow(T,2),0,0],
                      [10*pow(T,4),8*pow(T,3),6*pow(T,2),4*T,0,0],
@@ -78,7 +78,7 @@ min 1/2 x^T G x  -a^Tx
 s.t. 
     C.T x>= b
 """
-def traj_opt(duration,stp,dstp,ddstp,fp,edge,p=None,dp=None,ddp=None):
+def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=None):
     """
         p: all the sample points of postion for each segment part,structure like this [[],[]]
         dp: all the sample points of postion for each segment part,structure like this [[],[]]
@@ -93,9 +93,6 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,p=None,dp=None,ddp=None):
     delta =0.01#in meter
     n_seg = len(duration)
     dim  = len(stp)#
-    h =0.3
-    g =9.8
-
     for i in range(n_seg):
         #for the sampling of the line, we have some others formulations
         #for the qp slover
@@ -115,13 +112,19 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,p=None,dp=None,ddp=None):
         beq_sm=[] 
         Ciq_seg=[]
         biq_seg=[]
-        zmp_N = 1
+        zmp_N = 10
+        reg_N = 10
         Ciq_zmp = []
         biq_zmp =[]
         if i == 0 :#first segment
             for j in range(dim):
-                Q_seg.append(Acc(duration[i]))
-                a_seg.append(np.zeros(6))
+                Q_regular = np.zeros((6,6))
+                c_regular = np.zeros(6)
+                for t_ in np.linspace(0,duration[i],reg_N):
+                    Q_regular+=nt(t_).T@nt(t_)
+                    c_regular+=nt(t_).T@nt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]
+                Q_seg.append(Acc(duration[i],0.01)+Q_regular)
+                a_seg.append(np.zeros(6)+c_regular)
                 Ceq_seg.append(vstack([nt(0),dnt(0),ddnt(0)]))
                 beq_seg.append(hstack([stp[j],dstp[j],ddstp[j]]))
             for t_ in np.linspace(0,duration[i],zmp_N):
@@ -137,8 +140,13 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,p=None,dp=None,ddp=None):
 
         elif i > 0 and i < n_seg-1:#middle segment
             for j in range(dim):
-                Q_seg.append(Acc(duration[i]))
-                a_seg.append(np.zeros(6))
+                Q_regular = np.zeros((6,6))
+                c_regular = np.zeros(6)
+                for t_ in np.linspace(0,duration[i],reg_N):
+                    Q_regular+=nt(t_).T@nt(t_)
+                    c_regular+=nt(t_).T@nt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]
+                Q_seg.append(Acc(duration[i],0.01)+Q_regular)
+                a_seg.append(np.zeros(6)+c_regular)
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
                                     hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)]),
@@ -157,11 +165,13 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,p=None,dp=None,ddp=None):
 
         elif i == n_seg-1:#final segment 
             for j in range(dim):
-                # coeff = 1
-                # coeff_1= 0.1
-                # traj_Q,traj_a = Q_traj(nt,[0.1],[p1[j]])
-                Q_seg.append(Acc(duration[i])+nt(duration[i]).T@nt(duration[i]))
-                a_seg.append(np.zeros(6)+(nt(duration[i])*fp[j]).reshape(-1))
+                Q_regular = np.zeros((6,6))
+                c_regular = np.zeros(6)
+                for t_ in np.linspace(0,duration[i],reg_N):
+                    Q_regular+=nt(t_).T@nt(t_)
+                    c_regular+=nt(t_).T@nt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]
+                Q_seg.append(Acc(duration[i],0.01)+nt(duration[i]).T@nt(duration[i])+Q_regular)
+                a_seg.append(np.zeros(6)+(nt(duration[i])*fp[j]).reshape(-1)+c_regular)
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
                                     hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)]),
@@ -204,8 +214,8 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,p=None,dp=None,ddp=None):
     eqns = Ceq_all.shape[0]
     C = vstack([Ceq_all,Ciq_all])
     b = hstack([beq_all,biq_all])
-    x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
-    # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
+    # x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
+    x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
     # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
     return x
 
@@ -214,12 +224,7 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,p=None,dp=None,ddp=None):
 
 
 #each slice have the same 
-def traj_opt_regular(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
-    """
-        p: all the sample points of postion for each segment part,structure like this [[],[]]
-        dp: all the sample points of postion for each segment part,structure like this [[],[]]
-        ddp: all the sample points of postion for each segment part,structure like this [[],[]]
-    """
+def traj_opt_regular(duration,stp,dstp,ddstp,fp):
     Q_all = np.zeros((0,0))
     a_all = np.zeros(0)
     Ceq_all = np.zeros((0,0))
@@ -251,7 +256,7 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
 
         if i == 0 :#first segment
             for j in range(dim):
-                Q_seg.append(Acc(duration[i]))
+                Q_seg.append(Acc(duration[i],0.01))
                 a_seg.append(np.zeros(6))
                 Ceq_seg.append(vstack([nt(0),dnt(0),ddnt(0)]))
                 beq_seg.append(hstack([stp[j],dstp[j],ddstp[j]]))
@@ -262,7 +267,7 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
 
         elif i > 0 and i < n_seg-1:#middle segment
             for j in range(dim):
-                Q_seg.append(Acc(duration[i]))
+                Q_seg.append(Acc(duration[i],0.01))
                 a_seg.append(np.zeros(6))
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
@@ -281,7 +286,7 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
                 # coeff = 1
                 # coeff_1= 0.1
                 # traj_Q,traj_a = Q_traj(nt,[0.1],[p1[j]])
-                Q_seg.append(Acc(duration[i])+nt(duration[i]).T@nt(duration[i]))
+                Q_seg.append(Acc(duration[i],0.01)+nt(duration[i]).T@nt(duration[i]))
                 a_seg.append(np.zeros(6)+(nt(duration[i])*fp[j]).reshape(-1))
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
@@ -320,9 +325,9 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp,p=None,dp=None,ddp=None):
     eqns = Ceq_all.shape[0]
     C = vstack([Ceq_all,Ciq_all])
     b = hstack([beq_all,biq_all])
-    x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
-    # x = qp_solve(Q_all, -a_all, -Ciq_all.T, -biq_all, Ceq_all.T, beq_all, solver="qpswift")
-    # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
+    # x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
+    x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
+    # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
     return x
 
 

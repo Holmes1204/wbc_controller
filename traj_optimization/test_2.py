@@ -4,7 +4,7 @@ from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
 from numpy import hstack,vstack,array
 from copy import deepcopy
-from traj import traj_opt,traj_show
+from traj import traj_opt,traj_opt_regular
 
 def Acc(T,alpha=1e-8):
     return np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
@@ -230,7 +230,7 @@ duration=[polygons[j][1] for j in range(len(polygons))]
 # duration = duration[:2]
 shrink_support,edge = reduce_convex(polygons)
 # c_point = [sum(polygons[j][0])/4 for j in range(len(polygons))]
-# duration_=duration
+duration_=duration
 stp=[0,0]
 dstp=[0.,0.]
 ddstp=[0.,0.]
@@ -241,10 +241,10 @@ n_seg = 2 #number of segments
 dim = 2 #number of coordinates
 delta = 0.01
 
+coeff_regular =traj_opt_regular(duration,stp,dstp,ddstp,fp)
+coeff =traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular)
 
-coeff =traj_opt(duration,stp,dstp,ddstp,fp,edge)
-
-N =1000
+N =100
 n_seg = len(duration)
 traj_p = np.zeros((dim,n_seg*N))
 traj_zmp = np.zeros((dim,n_seg*N))
@@ -286,15 +286,22 @@ for j in range(dim):
 plt.legend()
 plt.grid()
 
-
 plt.figure()
 plt.plot(traj_p[0,:],traj_p[1,:],"k")
+plt.plot(traj_p[0,0:-1:N],traj_p[1,0:-1:N],"ko")
 plt.plot(traj_zmp[0,:],traj_zmp[1,:],"--g")
+plt.plot(traj_zmp[0,0:-1:N],traj_zmp[1,0:-1:N],"go")
+plt.grid()
+
 for i in range(len(polygons)):
+    plt.figure()
+    plt.plot(traj_p[0,i*N:(i+1)*N],traj_p[1,i*N:(i+1)*N],"k")
+    plt.plot(traj_zmp[0,i*N:(i+1)*N],traj_zmp[1,i*N:(i+1)*N],"--g")
     plot_convex_shape(polygons[i][0],'b')
     plot_convex_shape(shrink_support[i][0],'r')
+    plt.grid()
     # plot_convex_quiver(shrink_support[i][0],edge[i],'r')
 plt.xlim(-0.4,0.4)
 plt.ylim(-0.15,0.15)
-plt.grid()
+
 plt.show()
