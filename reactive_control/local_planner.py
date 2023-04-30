@@ -288,11 +288,11 @@ class local_planner:
     
 
     def body_traj_plan(self):
-        self.duration =[0.05,0.15,0.10,0.15,0.10,0.15,0.10,0.15,0.05]
+        self.duration =3*[0.05,0.15,0.10,0.15,0.10,0.15,0.10,0.15,0.05]
         self.cum_duration = np.cumsum(self.duration)
         self.traj_tot_time = sum(self.duration)
         #traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,v=None,a=None):
-        self.coeff = traj_opt_regular(self.duration,[0,0],[0,0],[0,0],[0.1,.0])
+        self.coeff = traj_opt_regular(self.duration,[0,0],[0,0],[0,0],[0.3,.0])
         self.traj_time = 0
         
     def body_traj_update(self,dt):

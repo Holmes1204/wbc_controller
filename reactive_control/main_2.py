@@ -20,12 +20,13 @@ print("".center(conf.LINE_WIDTH,'#'), '\n')
 
 PLOT_EE_POS = 1
 PLOT_BODY_POS = 1
-PLOT_DOG_JOINT_POS = 0
-PLOT_ARM_JOINT_POS = 0 
-PLOT_DOG_TORQUES = 0
-PLOT_ARM_TORQUES = 0
+PLOT_BODY_VEL = 1
+PLOT_DOG_JOINT_POS = 1
+PLOT_ARM_JOINT_POS = 1 
+PLOT_DOG_TORQUES = 1
+PLOT_ARM_TORQUES = 1
 
-rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("./a1_description/urdf/a1_kinova.urdf", ".",pin.JointModelFreeFlyer())
+rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("./a1_description/urdf/a1_kinova.urdf", "./",pin.JointModelFreeFlyer())
 robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)
 simu = RobotSimulator(conf, robot)
 local_plan  = local_planner(conf,1)
@@ -56,9 +57,9 @@ ddx     = np.empty((ndx, N))*nan        # end effector acceleration
 #
 mx   = np.empty((nx,  N))*nan        # end-effector reference position
 mx_ref   = np.empty((nx,  N))*nan        # end-effector reference position
-dx_ref  = np.empty((ndx, N))*nan        # end-effector reference velocity
-ddx_ref = np.empty((ndx, N))*nan        # end-effector reference acceleration
-ddx_des = np.empty((ndx, N))*nan        # end-effector desired acceleration
+traj_bp  = np.empty((ndx, N))*nan        # end-effector reference velocity
+traj_dbp = np.empty((ndx, N))*nan        # end-effector reference acceleration
+traj_ddbp = np.empty((ndx, N))*nan        # end-effector desired acceleration
 
 
 #
@@ -247,9 +248,9 @@ for ss in range(0, N):#ss: simualtion step
         tasks.append(task(A4,b4,None,None,3))
 
     #set reference
-    Kp_bp = 10
+    Kp_bp = 1000
     Kd_bp = 2*sqrt(Kp_bp)
-    Kp_bR = 10
+    Kp_bR = 1000
     Kd_bR = 2*sqrt(Kp_bR)
     traj_p,traj_dp,traj_ddp = local_plan.body_traj_update(conf.dt)
     x_bp_des = np.array([traj_p[0],traj_dp[1],0.32])
@@ -257,6 +258,10 @@ for ss in range(0, N):#ss: simualtion step
     ddx_bp_des = np.array([traj_ddp[0],traj_ddp[1],0])
     x_bR_des = np.eye(3)
     dx_bR_des = np.array([0.0,0.0,0.0])
+    #
+    traj_bp[:,ss]= x_bp_des
+    traj_dbp[:,ss]= dx_bp_des
+    traj_ddbp[:,ss]= ddx_bp_des
     #create task
     A3 = np.vstack([np.hstack([J_bp,np.zeros((3,nt))]),
                     np.hstack([J_bR,np.zeros((3,nt))])])
@@ -264,13 +269,13 @@ for ss in range(0, N):#ss: simualtion step
                     -dJdq_bR+Kp_bR*(pin.log3(x_bR_des.dot(x_bR.T)))+Kd_bR*(dx_bR_des-dx_bR)])
     tasks.append(task(A3,b3,None,None,4))
     #set reference (world frame)
-    Kp_mp = 10
+    Kp_mp = 100
     Kd_mp = 2*sqrt(Kp_mp)
-    Kp_mR = 10
+    Kp_mR = 100
     Kd_mR = 2*sqrt(Kp_mR)
     f = 1
     omega = 2*pi*f
-    amp = np.array([0.0,0.0,0.1])
+    amp = np.array([0.0,0.0,0.01])
     x_mp_des = np.array([ 0.703, -0.01 ,  0.661])+amp*np.sin([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
     x_mR_des = np.eye(3)
     dx_mp_des= np.array([0,0,0])+amp*omega*np.cos([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
@@ -281,7 +286,7 @@ for ss in range(0, N):#ss: simualtion step
                     np.hstack([J_mR,np.zeros((3,nt))])])
     b5 = np.hstack([-dJdq_mp+Kp_mp*(x_mp_des-x_mp)+Kd_mp*(dx_mp_des-dx_mp),
                     -dJdq_mR+Kp_mR*(pin.log3(x_mR_des.dot(x_mR.T)))+Kd_mR*(dx_mR_des-dx_mR)])
-    tasks.append(task(A5,b5,None,None,3))
+    tasks.append(task(A5,b5,None,None,5))
     
     #record to print the data
     mx[:,ss]= x_mp
@@ -326,10 +331,40 @@ if(PLOT_BODY_POS):
     f.canvas.manager.set_window_title(title)
     for i in range(3):
         ax[i].plot(time, q[i,:-1], label='body_pos')
+        ax[i].plot(time, traj_bp[i,:], '--', label='ref')
         ax[i].set_xlabel('Time [s]')
         ax[i].set_ylabel(r''+LABEL[i]+' [m]')
     leg = ax[0].legend()
     leg.get_frame().set_alpha(0.5)
+
+if(PLOT_BODY_VEL):    
+    (f, ax) = plut.create_empty_figure(3)
+    ax = ax.reshape(3)
+    title = "BODY_VEL"
+    f.suptitle(title, fontsize=16)
+    f.canvas.manager.set_window_title(title)
+    for i in range(3):
+        ax[i].plot(time, v[i,:-1], label='body_vel')
+        ax[i].plot(time, traj_dbp[i,:], '--', label='ref')
+        ax[i].set_xlabel('Time [s]')
+        ax[i].set_ylabel(r''+LABEL[i]+' [m]')
+    leg = ax[0].legend()
+    leg.get_frame().set_alpha(0.5)
+
+if(PLOT_BODY_VEL):    
+    (f, ax) = plut.create_empty_figure(3)
+    ax = ax.reshape(3)
+    title = "BODY_ACC"
+    f.suptitle(title, fontsize=16)
+    f.canvas.manager.set_window_title(title)
+    for i in range(3):
+        ax[i].plot(time, dv[i,:-1], label='body_acc')
+        ax[i].plot(time, traj_ddbp[i,:], '--', label='ref')
+        ax[i].set_xlabel('Time [s]')
+        ax[i].set_ylabel(r''+LABEL[i]+' [m]')
+    leg = ax[0].legend()
+    leg.get_frame().set_alpha(0.5)
+
 
 
 if(PLOT_DOG_JOINT_POS):    

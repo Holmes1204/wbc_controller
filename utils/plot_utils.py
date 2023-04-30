@@ -8,9 +8,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-DEFAULT_FONT_SIZE = 15;
+DEFAULT_FONT_SIZE = 12;
 DEFAULT_AXIS_FONT_SIZE = DEFAULT_FONT_SIZE;
-DEFAULT_LINE_WIDTH = 4; #13;
+DEFAULT_LINE_WIDTH = 2; #13;
 DEFAULT_MARKER_SIZE = 4;
 DEFAULT_FONT_FAMILY = 'sans-serif'
 DEFAULT_FONT_SERIF = ['Times New Roman', 'Times','Bitstream Vera Serif', 'DejaVu Serif', 'New Century Schoolbook', 'Century Schoolbook L', 'Utopia', 'ITC Bookman', 'Bookman', 'Nimbus Roman No9 L', 'Palatino', 'Charter', 'serif'];
