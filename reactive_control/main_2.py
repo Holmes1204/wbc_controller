@@ -14,6 +14,8 @@ import pinocchio as pin
 from reactive_control.local_planner import local_planner,reduce_convex
 from solutions.WBC_HO import task,WBC_HO
 
+
+
 print("".center(conf.LINE_WIDTH,'#'))       
 print(" Quadrupedal Robot".center(conf.LINE_WIDTH, '#'))
 print("".center(conf.LINE_WIDTH,'#'), '\n')
@@ -123,8 +125,8 @@ for ss in range(0, N):#ss: simualtion step
     v_frame = robot.frameVelocity(q[:,ss], v[:,ss], frame_id, False)
     a_frame_no_ddq = robot.frameAcceleration(q[:,ss], v[:,ss], None, frame_id, False)
     x_bp= H.translation # take the 3d position of the end-effector
-    x_bR = H.rotation
     dx_bp = v_frame.linear # take linear part of 6d velocity
+    x_bR = H.rotation
     dx_bR = v_frame.angular
     J_bp = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
     dJdq_bp = a_frame_no_ddq.linear
@@ -141,16 +143,27 @@ for ss in range(0, N):#ss: simualtion step
     dx_mR = v_frame.angular
     J_mp = robot.frameJacobian(q[:,ss], frame_id, False)[:3,:]
     dJdq_mp = a_frame_no_ddq.linear
+
     J_mR = robot.frameJacobian(q[:,ss], frame_id, False)[3:,:]
     dJdq_mR = a_frame_no_ddq.angular
     #----------feed back over---------
     #foot update
-    local_plan.update(conf.dt,p_f,p_h,dx_bp,dx_bp)
-    if ss == 0:
-        local_plan.body_traj_plan()
-        local_plan.body_traj_show()
-        support_polygon = local_plan.get_support_polygon(p_f[:,:2],local_plan.next_foot)
+    local_plan.update_foot(p_f,p_h,dx_bp,dx_bp)
+    if ss%250 == 0:
+        # local_plan.body_traj_show()
+        stp = x_bp[:2]
+        dstp =dx_bp[:2]
+        ddstp =np.zeros(2)
+        fp=x_bp[:2]+np.array([0.3,0])*1
+        support_polygon = local_plan.get_support_polygon(p_f[:,:2])
         shrink_polygon,edge = reduce_convex(support_polygon)
+        local_plan.body_traj_plan(stp,dstp,ddstp,fp,edge,support_polygon,shrink_polygon)
+        # print_each_support_polygon(support_polygon,shrink_polygon,edge)
+        # print_all_support_polygon(support_polygon,shrink_polygon)
+        # plt.show()
+
+
+    
     #
     #here is contact
     n_contact = local_plan.contact_num()
@@ -256,6 +269,9 @@ for ss in range(0, N):#ss: simualtion step
     x_bp_des = np.array([traj_p[0],traj_dp[1],0.32])
     dx_bp_des = np.array([traj_dp[0],traj_dp[1],0])
     ddx_bp_des = np.array([traj_ddp[0],traj_ddp[1],0])
+    # x_bp_des   = np.array([0.0,0.0,0.32])
+    # dx_bp_des  = np.array([0.0,0.0,0.0])
+    # ddx_bp_des = np.array([0.0,0.0,0.0])
     x_bR_des = np.eye(3)
     dx_bR_des = np.array([0.0,0.0,0.0])
     #
@@ -265,27 +281,31 @@ for ss in range(0, N):#ss: simualtion step
     #create task
     A3 = np.vstack([np.hstack([J_bp,np.zeros((3,nt))]),
                     np.hstack([J_bR,np.zeros((3,nt))])])
-    b3 = np.hstack([-dJdq_bp+Kp_bp*(x_bp_des-x_bp)+Kd_bp*(dx_bp_des-dx_bp+ddx_bp_des),
+    b3 = np.hstack([-dJdq_bp+Kp_bp*(x_bp_des-x_bp)+Kd_bp*(dx_bp_des-dx_bp)+ddx_bp_des,
                     -dJdq_bR+Kp_bR*(pin.log3(x_bR_des.dot(x_bR.T)))+Kd_bR*(dx_bR_des-dx_bR)])
     tasks.append(task(A3,b3,None,None,4))
     #set reference (world frame)
-    Kp_mp = 100
+    Kp_mp = 10000
     Kd_mp = 2*sqrt(Kp_mp)
-    Kp_mR = 100
+    Kp_mR = 10
     Kd_mR = 2*sqrt(Kp_mR)
-    f = 1
+    f = 0.005
     omega = 2*pi*f
-    amp = np.array([0.0,0.0,0.01])
+    amp = np.array([0.0,0.0,0.0])
     x_mp_des = np.array([ 0.703, -0.01 ,  0.661])+amp*np.sin([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
-    x_mR_des = np.eye(3)
+    # x_mp_des = x_mp
+    q0 =[1.5707,2.618,-1.5707,-1.5707,3.1415, 0.]
+    x_mR_des = x_mR
     dx_mp_des= np.array([0,0,0])+amp*omega*np.cos([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
     dx_mR_des = np.array([0,0,0])
     ddx_mp_des= -amp*omega*omega*np.sin([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
     #create task
-    A5 = np.vstack([np.hstack([J_mp,np.zeros((3,nt))]),
-                    np.hstack([J_mR,np.zeros((3,nt))])])
-    b5 = np.hstack([-dJdq_mp+Kp_mp*(x_mp_des-x_mp)+Kd_mp*(dx_mp_des-dx_mp),
-                    -dJdq_mR+Kp_mR*(pin.log3(x_mR_des.dot(x_mR.T)))+Kd_mR*(dx_mR_des-dx_mR)])
+    # A5 = np.vstack([np.hstack([J_mp,np.zeros((3,nt))]),
+    #                 np.hstack([J_mR,np.zeros((3,nt))])])
+    # b5 = np.hstack([-dJdq_mp+Kp_mp*(x_mp_des-x_mp)+Kd_mp*(dx_mp_des-dx_mp)+ddx_mp_des,
+    #                 -dJdq_mR+Kp_mR*(pin.log3(x_mR_des.dot(x_mR.T)))+Kd_mR*(dx_mR_des-dx_mR)])
+    A5 = np.hstack([np.zeros((6,18)),np.eye(6),np.zeros((6,nt))])
+    b5 = np.hstack(Kp_mp*(q0-q[-6:,ss])-Kd_mp*v[-6:,ss])
     tasks.append(task(A5,b5,None,None,5))
     
     #record to print the data
@@ -299,10 +319,11 @@ for ss in range(0, N):#ss: simualtion step
 
     # send joint torques to simulator
     simu.simulate(tau[:,ss], conf.dt, conf.ndt)
-    
     if ss%PRINT_N == 0:
         print("Time %.3f"%(t))
+    local_plan.update_phase(conf.dt)
     t += conf.dt
+
 
 LABEL={
     0:'x',1:'y',2:'z'

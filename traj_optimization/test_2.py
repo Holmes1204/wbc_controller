@@ -4,7 +4,7 @@ from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
 from numpy import hstack,vstack,array
 from copy import deepcopy
-from traj import traj_opt,traj_opt_regular
+from traj import traj_opt,traj_opt_regular,body_traj_show
 
 def Acc(T,alpha=1e-8):
     return np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
@@ -71,7 +71,7 @@ min 1/2 x^T G x  -a^Tx
 s.t. 
     C.T x>= b
 """
-def plot_convex_shape(vertices_, color='k'):
+def plot_convex_shape(ax,vertices_, color='k'):
     """Plot a convex shape given its vertices using matplotlib."""
     vertices = deepcopy(vertices_)
     for i in range(len(vertices)-1,-1,-1):
@@ -83,10 +83,10 @@ def plot_convex_shape(vertices_, color='k'):
     # plt.fill(x, y, color=color)
     x.append(vertices[0][0])  # Add the first vertex to close the shape
     y.append(vertices[0][1])  # Add the first vertex to close the shape
-    plt.plot(x, y,color+"-.")
+    ax.plot(x, y,color+"-.")
 
 
-def plot_convex_quiver(vertices,edge=None, color='k'):
+def plot_convex_quiver(ax,vertices,edge=None, color='k'):
     """Plot a convex shape and its normal vector"""
     num_vertices = len(vertices)
     x = [vertices[i][0] for i in range(num_vertices)]
@@ -95,9 +95,9 @@ def plot_convex_quiver(vertices,edge=None, color='k'):
     y.append(vertices[0][1])  # Add the first vertex to close the shape
     midx = [(x[i]+x[i+1])/2.0 for i in range(len(x)-1)]
     midy = [(y[i]+y[i+1])/2.0 for i in range(len(y)-1)]
-    plt.plot(x, y, color+"-.")
+    ax.plot(x, y, color+"-.")
     if edge is not None:
-        plt.quiver(midx,midy,edge[:,0],edge[:,1],color='k')
+        ax.quiver(midx,midy,edge[:,0],edge[:,1],color='k')
 
 
 def reduce_convex(polygon_set,s=0.025,w=0.025):
@@ -214,7 +214,7 @@ polygons = [[[array([0.2, 0.1]),
 
 # print(polygons[2])
 # for i in range(len(polygons)):
-#     plt.figure()
+#     fig,ax = plt.subplots()
 #     plot_convex_shape(polygons[i][0])
 #     plot_convex_quiver(a[i][0],edge[i],'r')
 #     plt.grid()
@@ -244,64 +244,63 @@ delta = 0.01
 coeff_regular =traj_opt_regular(duration,stp,dstp,ddstp,fp)
 coeff =traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular)
 
-N =100
-n_seg = len(duration)
-traj_p = np.zeros((dim,n_seg*N))
-traj_zmp = np.zeros((dim,n_seg*N))
-traj_dp = np.zeros((dim,n_seg*N))
-traj_ddp = np.zeros((dim,n_seg*N))
-tot_time = np.zeros(n_seg*N)
+body_traj_show(duration,polygons,shrink_support,dim,coeff)
+# N =100
+# n_seg = len(duration)
+# traj_p = np.zeros((dim,n_seg*N))
+# traj_zmp = np.zeros((dim,n_seg*N))
+# traj_dp = np.zeros((dim,n_seg*N))
+# traj_ddp = np.zeros((dim,n_seg*N))
+# tot_time = np.zeros(n_seg*N)
 
 
-
-
-
-for i in range(n_seg):  
-    time = np.linspace(0,duration[i],N)
-    for j in range(N):
-        tot_time[j+i*N] = tot_time[i*N-1]+time[j]
-        for k in range(dim):
-            traj_zmp[k,j+i*N] = zmp1(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
-            traj_p[k,j+i*N] = nt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
-            traj_dp[k,j+i*N] = dnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
-            traj_ddp[k,j+i*N] = ddnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+# for i in range(n_seg):  
+#     time = np.linspace(0,duration[i],N)
+#     for j in range(N):
+#         tot_time[j+i*N] = tot_time[i*N-1]+time[j]
+#         for k in range(dim):
+#             traj_zmp[k,j+i*N] = zmp1(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+#             traj_p[k,j+i*N] = nt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+#             traj_dp[k,j+i*N] = dnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+#             traj_ddp[k,j+i*N] = ddnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
         
 
-LABEL={0:'x',1:'y',2:'z'}
-plt.figure()
-for j in range(dim):
-    plt.plot(tot_time,traj_p[j,:],label='$pos_'+LABEL[j]+"$")
-plt.legend()
-plt.grid()
+# LABEL={0:'x',1:'y',2:'z'}
+# fig,ax = plt.subplots()
+# for j in range(dim):
+#     ax.plot(tot_time,traj_p[j,:],label='$pos_'+LABEL[j]+"$")
+# ax.legend()
+# ax.grid()
 
-plt.figure()
-for j in range(dim):
-    plt.plot(tot_time,traj_dp[j,:],label='$vel_'+LABEL[j]+"$")
-plt.legend()
-plt.grid()
+# fig,ax = plt.subplots()
+# for j in range(dim):
+#     ax.plot(tot_time,traj_dp[j,:],label='$vel_'+LABEL[j]+"$")
+# ax.legend()
+# ax.grid()
 
-plt.figure()
-for j in range(dim):
-    plt.plot(tot_time,traj_ddp[j,:],label="$acc_"+LABEL[j]+"$")
-plt.legend()
-plt.grid()
+# fig,ax = plt.subplots()
+# for j in range(dim):
+#     ax.plot(tot_time,traj_ddp[j,:],label="$acc_"+LABEL[j]+"$")
+# ax.legend()
+# ax.grid()
 
-plt.figure()
-plt.plot(traj_p[0,:],traj_p[1,:],"k")
-plt.plot(traj_p[0,0:-1:N],traj_p[1,0:-1:N],"ko")
-plt.plot(traj_zmp[0,:],traj_zmp[1,:],"--g")
-plt.plot(traj_zmp[0,0:-1:N],traj_zmp[1,0:-1:N],"go")
-plt.grid()
+# fig,ax = plt.subplots()
+# ax.plot(traj_p[0,:],traj_p[1,:],"k")
+# ax.plot(traj_p[0,0:-1:N],traj_p[1,0:-1:N],"ko")
+# ax.plot(traj_zmp[0,:],traj_zmp[1,:],"--g")
+# ax.plot(traj_zmp[0,0:-1:N],traj_zmp[1,0:-1:N],"r*")
+# ax.grid()
 
-for i in range(len(polygons)):
-    plt.figure()
-    plt.plot(traj_p[0,i*N:(i+1)*N],traj_p[1,i*N:(i+1)*N],"k")
-    plt.plot(traj_zmp[0,i*N:(i+1)*N],traj_zmp[1,i*N:(i+1)*N],"--g")
-    plot_convex_shape(polygons[i][0],'b')
-    plot_convex_shape(shrink_support[i][0],'r')
-    plt.grid()
-    # plot_convex_quiver(shrink_support[i][0],edge[i],'r')
-plt.xlim(-0.4,0.4)
-plt.ylim(-0.15,0.15)
+# for i in range(len(polygons)):
+#     fig,ax = plt.subplots()
+#     ax.plot(traj_p[0,:],traj_p[1,:],"k")
+#     ax.plot(traj_p[0,[i*N,(i+1)*N-1]],traj_p[1,[i*N,(i+1)*N-1]],"ko")
+#     ax.plot(traj_zmp[0,:],traj_zmp[1,:],"--g")
+#     ax.plot(traj_zmp[0,[i*N,(i+1)*N-1]],traj_zmp[1,[i*N,(i+1)*N-1]],"r*")
+#     plot_convex_shape(ax,polygons[i][0],'b')
+#     plot_convex_shape(ax,shrink_support[i][0],'y')
+#     ax.grid()
+#     # plot_convex_quiver(shrink_support[i][0],edge[i],'r')
+
 
 plt.show()

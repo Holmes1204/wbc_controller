@@ -13,7 +13,7 @@ sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
-from traj_optimization.traj import traj_opt,traj_show,traj_opt_regular
+from traj_optimization.traj import traj_opt,traj_opt_regular,body_traj_show
 from math import sqrt
 import local_planner_conf as conf
 from copy import deepcopy
@@ -65,7 +65,7 @@ def swing_foot_plan(p_s,p_e,T):
     A = mT(T)
     A_inv = inv(A)
     Az = mT(T/2.0)
-    Az_inv = inv(Az) 
+    Az_inv = inv(Az)                  
     coeff0 = A_inv[:,0]*p_s[0]+A_inv[:,3]*p_e[0]
     coeff1 = A_inv[:,0]*p_s[1]+A_inv[:,3]*p_e[1]
     coeff2_1 = Az_inv[:,3]*z
@@ -158,14 +158,15 @@ def reduce_convex(polygon_set,s=0.025,w=0.025):
 
 
 class local_planner:
-    contact = [True,True,True,True]# [FL,FR, RR,RL] follow this sequence, True is in contact, False means in swing phase
+    contact = [True,True,True,True]# [FL,FR, RL,RR] follow this sequence, True is in contact, False means in swing phase
     first_stand = [True,True,True,True]
     first_swing = [False,False,False,False]
     #change the force by the phase
     def __init__(self,conf,T):
         self.stance_phase = 0.75# the phase of stance 
         self.swing_phase = 0.25# the time of swing 
-        self.lift_off = np.array([0.05,0.55,0.7,0.2])# the lift off event time!
+        # self.lift_off = np.array([0.05,0.55,0.7,0.2])# old
+        self.lift_off = np.array([0.7,0.2,0.05,0.55])# the lift off event time!
         self.touch_down = self.lift_off+self.swing_phase
         self.touch_down *=T
         self.lift_off *=T
@@ -189,7 +190,8 @@ class local_planner:
     """
     foot: np.array, shape(3,4)
     """
-    def update(self,dt,foot,hip,v_ref,v_hip):
+    def update_foot(self,foot,hip,v_ref,v_hip):
+        v_ref = np.array([0.3,0.00,0.0])
         for i in range(4):
             if self.cur > self.lift_off[i] and self.cur < self.touch_down[i]:
                 if self.first_swing[i] :
@@ -213,6 +215,8 @@ class local_planner:
                 self.next_foot[i] = np.array([hip[i][0]+v_ref[0]*self.stance_phase/2.0,hip[i][1]+v_ref[1]*self.stance_phase/2.0])
                 self.phase[i] = (self.T-self.cur+self.lift_off[i]) \
                     if self.cur > self.lift_off[i] else (self.lift_off[i]-self.cur)
+        
+    def update_phase(self,dt):    
         self.cur +=dt
         if self.cur>self.T:
             self.cur = 0.0
@@ -233,16 +237,34 @@ class local_planner:
         return p,v,a
         
     #event based
-    def get_support_polygon(self,foot,next_foot):
+    def get_support_polygon(self,foot):
         #this only used in the first start point
-        t = 0.0
+        #foot also is necessary
+        t = self.cur
         a = list(self.lift_off)
         b = list(self.touch_down)
+        for m in range(len(a)):
+            if a[m]<t:
+                a[m] +=self.T-t
+            else:
+                a[m] -=t
+            if b[m]<t:
+                b[m]+=self.T-t
+            else:
+                b[m] -=t
+        t = 0
+        foot_ = []
+        for m in range(4):
+            if self.in_contact(m):
+                foot_.append(foot[m])
+            else:
+                foot_.append(None)
         origin_a = a.copy()
         origin_b = b.copy()
         support_polygon = []
-        foot_ = list(foot.copy())
-        next_foot_ =next_foot.copy()
+        #make sure the change of next_foot in other function will not change the value here
+        #because it contains all the numpy array data structure
+        next_foot_ =self.next_foot.copy()
         #
         while len(a)>0 or len(b)>0:
             if len(a)>0 and len(b)>0:
@@ -279,6 +301,11 @@ class local_planner:
                 support_polygon.append([deepcopy(foot_),dt])
                 foot_[index_] = next_foot_[index_,:]
         support_polygon.append([deepcopy(foot_),self.T-t])
+        #change the order of the foot sequence inorde to draw the polygons
+        for item in support_polygon:
+            temp = item[0][2]
+            item[0][2] = item[0][3]
+            item[0][3] = temp
         return deepcopy(support_polygon)
 
 
@@ -287,12 +314,14 @@ class local_planner:
         print(str(self.cur)+"\n",n,self.contact,self.phase)
     
 
-    def body_traj_plan(self):
-        self.duration =3*[0.05,0.15,0.10,0.15,0.10,0.15,0.10,0.15,0.05]
-        self.cum_duration = np.cumsum(self.duration)
+    def body_traj_plan(self,stp,dstp,ddstp,fp,edge,support_polygon,shrink_polygon):
+        self.duration=[support_polygon[j][1] for j in range(len(support_polygon))]
         self.traj_tot_time = sum(self.duration)
-        #traj_opt(n_seg,dim,duration,stp,dstp,ddstp,fp,p=None,v=None,a=None):
-        self.coeff = traj_opt_regular(self.duration,[0,0],[0,0],[0,0],[0.3,.0])
+        self.cum_duration = np.cumsum(self.duration)
+        coeff_regular =traj_opt_regular(self.duration,stp,dstp,ddstp,fp)
+        # r_coeff =traj_opt(self.duration,stp,dstp,ddstp,fp,edge,coeff_regular)
+        self.coeff = coeff_regular
+        # body_traj_show(self.duration,support_polygon,shrink_polygon,2,self.coeff)
         self.traj_time = 0
         
     def body_traj_update(self,dt):
@@ -310,10 +339,15 @@ class local_planner:
                         a[k] = ddnt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
                     self.traj_time +=dt
                     return p,v,a
+        # else:
+        #     time = self.traj_tot_time- self.cum_duration[-2]
+        #     for k in range(2):
+        #         p[k] =   nt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+        #     return p,v,a
         #follow the time splice and get the reference  
 
-    def body_traj_show(self):
-        traj_show(self.duration,self.dim,self.coeff)
+    # def body_traj_show(self):
+    #     traj_show(self.duration,self.dim,self.coeff)
 
 
 def print_each_support_polygon(polys_1,polys_2,edge=None):

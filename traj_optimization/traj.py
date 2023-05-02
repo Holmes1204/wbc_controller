@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
 from numpy import hstack,vstack
+from copy import deepcopy
 from qpsolvers import solve_qp as qp_solve
 
 def Acc(T,k=1,alpha=1e-8):
@@ -29,14 +30,20 @@ def T(t):
     return diagm([nt(t),ddnt(t),dnt(t)])
 
 def zmp(t):
-    z =  0.3
+    z =  0.32
     g =  9.8
     ddz=  0.0
     matrix = np.array([1,-z/(g+ddz)])@np.vstack([nt(t),ddnt(t)])
     matrix.resize(1,6)
     return diagm([matrix,matrix])
 
-
+def zmp1(t):
+    z =  0.32
+    g =  9.8
+    ddz=  0.0
+    matrix = np.array([1,-z/(g+ddz)])@np.vstack([nt(t),ddnt(t)])
+    matrix.resize(1,6)
+    return matrix
     
 
 def diagm(matlist: list,rcol = 0):
@@ -68,6 +75,34 @@ def Q_traj(Tm,time:np.array,p:np.array):
         a_ +=Tm(time[i]).reshape(-1)*p[i]
     return Q_,a_
  
+def plot_convex_shape(ax,vertices_, color='k'):
+    """Plot a convex shape given its vertices using matplotlib."""
+    vertices = deepcopy(vertices_)
+    for i in range(len(vertices)-1,-1,-1):
+        if vertices[i] is None:
+            vertices.pop(i)
+    num_vertices = len(vertices)
+    x = [vertices[i][0] for i in range(num_vertices)]
+    y = [vertices[i][1] for i in range(num_vertices)]
+    # plt.fill(x, y, color=color)
+    x.append(vertices[0][0])  # Add the first vertex to close the shape
+    y.append(vertices[0][1])  # Add the first vertex to close the shape
+    ax.plot(x, y,color+"-.")
+
+
+def plot_convex_quiver(ax,vertices,edge=None, color='k'):
+    """Plot a convex shape and its normal vector"""
+    num_vertices = len(vertices)
+    x = [vertices[i][0] for i in range(num_vertices)]
+    y = [vertices[i][1] for i in range(num_vertices)]
+    x.append(vertices[0][0])  # Add the first vertex to close the shape
+    y.append(vertices[0][1])  # Add the first vertex to close the shape
+    midx = [(x[i]+x[i+1])/2.0 for i in range(len(x)-1)]
+    midy = [(y[i]+y[i+1])/2.0 for i in range(len(y)-1)]
+    ax.plot(x, y, color+"-.")
+    if edge is not None:
+        ax.quiver(midx,midy,edge[:,0],edge[:,1],color='k')
+
 #suppose that the time dt between each trajetory point is dt
 #1.regulation
 #2.deviation for last splines
@@ -149,9 +184,8 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=No
                 a_seg.append(np.zeros(6)+c_regular)
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
-                                    hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)]),
-                                    hstack([ddnt(duration[i-1]),np.zeros((1,6*(dim-1))),-ddnt(0)])]))
-                beq_sm.append(hstack([0,0,0]))
+                                    hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)])]))
+                beq_sm.append(hstack([0,0]))
             for t_ in np.linspace(0,duration[i],zmp_N):
                 Ciq_zmp.append(edge[i][:,:2]@zmp(t_))
                 biq_zmp.append(-edge[i][:,2])
@@ -174,9 +208,8 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=No
                 a_seg.append(np.zeros(6)+(nt(duration[i])*fp[j]).reshape(-1)+c_regular)
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
-                                    hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)]),
-                                    hstack([ddnt(duration[i-1]),np.zeros((1,6*(dim-1))),-ddnt(0)])]))
-                beq_sm.append(hstack([0,0,0]))
+                                    hstack([dnt(duration[i-1]),np.zeros((1,6*(dim-1))),-dnt(0)])]))
+                beq_sm.append(hstack([0,0]))
                 #
                 Ciq_seg.append(vstack([nt(duration[i]),-nt(duration[i])]))
                 biq_seg.append(hstack([fp[j]-delta,-(fp[j]+delta)]))
@@ -214,8 +247,8 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=No
     eqns = Ceq_all.shape[0]
     C = vstack([Ceq_all,Ciq_all])
     b = hstack([beq_all,biq_all])
-    # x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
-    x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
+    x, f, xu, iters, lagr, iact = solve_qp(Q_all,a_all,C.T,b,eqns)
+    # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="qpswift")
     # x = qp_solve(Q_all, -a_all, -Ciq_all, -biq_all, Ceq_all, beq_all, solver="quadprog")
     return x
 
@@ -372,3 +405,62 @@ def traj_show(duration,dim,coeff):
     plt.figure()
     plt.plot(traj_p[0,:],traj_p[1,:])
     plt.grid()
+
+
+def body_traj_show(duration,polygons,shrink_support,dim,coeff):
+    N =100
+    n_seg = len(duration)
+    traj_p = np.zeros((dim,n_seg*N))
+    traj_zmp = np.zeros((dim,n_seg*N))
+    traj_dp = np.zeros((dim,n_seg*N))
+    traj_ddp = np.zeros((dim,n_seg*N))
+    tot_time = np.zeros(n_seg*N)
+
+
+    for i in range(n_seg):  
+        time = np.linspace(0,duration[i],N)
+        for j in range(N):
+            tot_time[j+i*N] = tot_time[i*N-1]+time[j]
+            for k in range(dim):
+                traj_zmp[k,j+i*N] = zmp1(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                traj_p[k,j+i*N] = nt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                traj_dp[k,j+i*N] = dnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+                traj_ddp[k,j+i*N] = ddnt(time[j])@coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+            
+
+    LABEL={0:'x',1:'y',2:'z'}
+    fig,ax = plt.subplots()
+    for j in range(dim):
+        ax.plot(tot_time,traj_p[j,:],label='$pos_'+LABEL[j]+"$")
+    ax.legend()
+    ax.grid()
+
+    fig,ax = plt.subplots()
+    for j in range(dim):
+        ax.plot(tot_time,traj_dp[j,:],label='$vel_'+LABEL[j]+"$")
+    ax.legend()
+    ax.grid()
+
+    fig,ax = plt.subplots()
+    for j in range(dim):
+        ax.plot(tot_time,traj_ddp[j,:],label="$acc_"+LABEL[j]+"$")
+    ax.legend()
+    ax.grid()
+
+    fig,ax = plt.subplots()
+    ax.plot(traj_p[0,:],traj_p[1,:],"k")
+    ax.plot(traj_p[0,0:-1:N],traj_p[1,0:-1:N],"ko")
+    ax.plot(traj_zmp[0,:],traj_zmp[1,:],"--g")
+    ax.plot(traj_zmp[0,0:-1:N],traj_zmp[1,0:-1:N],"r*")
+    ax.grid()
+
+    for i in range(len(polygons)):
+        fig,ax = plt.subplots()
+        ax.plot(traj_p[0,:],traj_p[1,:],"k")
+        ax.plot(traj_p[0,[i*N,(i+1)*N-1]],traj_p[1,[i*N,(i+1)*N-1]],"ko")
+        ax.plot(traj_zmp[0,:],traj_zmp[1,:],"--g")
+        ax.plot(traj_zmp[0,[i*N,(i+1)*N-1]],traj_zmp[1,[i*N,(i+1)*N-1]],"r*")
+        plot_convex_shape(ax,polygons[i][0],'b')
+        plot_convex_shape(ax,shrink_support[i][0],'y')
+        ax.grid()
+        # plot_convex_quiver(shrink_support[i][0],edge[i],'r')

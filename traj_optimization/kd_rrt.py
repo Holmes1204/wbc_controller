@@ -160,9 +160,9 @@ def plot_globe(a,b,c,r,dense=10):
 # else:
 #     print("No feasible path found.")
 
-start = np.array((0, 0,0,0))
-goal = np.array((1, 1,0,0))
-obstacle_list = [(0.5, 0.5, 0.1), (0.3,0.7,0.1),(0.7,0.3,0.1)]
+start = np.array((0, 0,0,0,0,0))
+goal = np.array((1, 1,1,0,0,0))
+obstacle_list = [(0.5, 0.5,0.5, 0.1), (0.3,0.7,0.5,0.1),(0.7,0.3,0.5,0.1)]
 
 rrt = RRTConnect(start, goal, obstacle_list)
 path = rrt.plan()
