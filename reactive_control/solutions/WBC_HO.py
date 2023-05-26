@@ -98,6 +98,14 @@ class WBC_HO:
         # print(self.count,"solved!\n")
         return x
 
+
+# 根据Jacoian去求直驱关节的角度
+#Jacobian有不同的行数，但是列数度相同，inv jacobian找合适的值即可，最后再结合运动学方程进行优化。
+#3.摆动足端的轨迹跟踪
+#1.站立足端的轨迹
+#4.机械臂的轨迹
+#2.机身的轨迹
+
 if __name__ == '__main__':
 
     pass

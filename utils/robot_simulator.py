@@ -360,8 +360,15 @@ class RobotSimulator:
     def simulate(self, u, dt=0.001, ndt=1):
         ''' Perform ndt steps, each lasting dt/ndt seconds '''
         tau_c_avg = 0*self.tau_c
+        #1.calculate the command voltage, a bit higher frequncy
+        #here start coding
+        
+
         for i in range(ndt):
-            self.q, self.v = self.step(u, dt/ndt)
+            #2.get the real torque,by velocity,
+
+            #here start coding
+            self.q, self.v = self.step(u, dt/ndt)#
             tau_c_avg += self.tau_c
         self.tau_c = tau_c_avg / ndt
         if(self.conf.use_viewer):

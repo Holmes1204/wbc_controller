@@ -14,7 +14,7 @@ LINE_WIDTH = 60
 
 # q0 = np.array([0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3])# fixed body frame
 q0 = np.array([0.0,0.0,0.31836983483860026,0.0,0.0,0.0,1.0,0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3])# floating base
-T_SIMULATION = 1            # simulation time 
+T_SIMULATION = 2           # simulation time 
 dt = 0.001                   # simulate the controller,control time 1khz
 ndt = 20                      # number of integration steps for each control loop dt/ndt is the real  simulation time,20 times sampling
 

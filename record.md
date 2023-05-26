@@ -13,6 +13,7 @@ line180     free_flyer = False#True
 for frame_idx in range(robot.model.nframes):
     frame_name = robot.model.frames[frame_idx].name
     print("Frame %d: %s" % (frame_idx, frame_name))
+
 Frame 0: universe
 Frame 1: root_joint
 Frame 2: base

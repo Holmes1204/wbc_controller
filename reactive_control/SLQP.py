@@ -1,0 +1,1 @@
+#first linear optmization , and then qp optimization which can slove the problem efficiently

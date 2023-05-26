@@ -5,7 +5,8 @@ from numpy.linalg import matrix_rank as rank,inv
 from numpy import hstack,vstack
 from copy import deepcopy
 from qpsolvers import solve_qp as qp_solve
-
+import matplotlib.ticker as ticker
+f_path = '/home/holmes/Desktop/graduation/hitsz_paper/pictures/'
 def Acc(T,k=1,alpha=1e-8):
     return k*np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
                      [40*pow(T,6),144/5*pow(T,5),18*pow(T,4),8*pow(T,3),0,0],
@@ -75,7 +76,7 @@ def Q_traj(Tm,time:np.array,p:np.array):
         a_ +=Tm(time[i]).reshape(-1)*p[i]
     return Q_,a_
  
-def plot_convex_shape(ax,vertices_, color='k'):
+def plot_convex_shape(ax,vertices_, color='k',tlabel=None):
     """Plot a convex shape given its vertices using matplotlib."""
     vertices = deepcopy(vertices_)
     for i in range(len(vertices)-1,-1,-1):
@@ -87,7 +88,7 @@ def plot_convex_shape(ax,vertices_, color='k'):
     # plt.fill(x, y, color=color)
     x.append(vertices[0][0])  # Add the first vertex to close the shape
     y.append(vertices[0][1])  # Add the first vertex to close the shape
-    ax.plot(x, y,color+"-.")
+    ax.plot(x, y,color+"-.",label=tlabel)
 
 
 def plot_convex_quiver(ax,vertices,edge=None, color='k'):
@@ -128,6 +129,7 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=No
     delta =0.01#in meter
     n_seg = len(duration)
     dim  = len(stp)#
+    acc_k = 0.001
     for i in range(n_seg):
         #for the sampling of the line, we have some others formulations
         #for the qp slover
@@ -147,8 +149,8 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=No
         beq_sm=[] 
         Ciq_seg=[]
         biq_seg=[]
-        zmp_N = 10
-        reg_N = 10
+        zmp_N = 1000
+        reg_N = 1000
         Ciq_zmp = []
         biq_zmp =[]
         if i == 0 :#first segment
@@ -156,17 +158,19 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=No
                 Q_regular = np.zeros((6,6))
                 c_regular = np.zeros(6)
                 for t_ in np.linspace(0,duration[i],reg_N):
-                    Q_regular+=nt(t_).T@nt(t_)
-                    c_regular+=nt(t_).T@nt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]
-                Q_seg.append(Acc(duration[i],0.01)+Q_regular)
+                    Q_regular+=nt(t_).T@nt(t_)+dnt(t_).T@dnt(t_)+ddnt(t_).T@ddnt(t_)
+                    c_regular+=nt(t_).T@nt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]\
+                                +dnt(t_).T@dnt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]\
+                                +ddnt(t_).T@ddnt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]
+                Q_seg.append(Acc(duration[i],acc_k)+Q_regular)
                 a_seg.append(np.zeros(6)+c_regular)
                 Ceq_seg.append(vstack([nt(0),dnt(0),ddnt(0)]))
                 beq_seg.append(hstack([stp[j],dstp[j],ddstp[j]]))
-            for t_ in np.linspace(0,duration[i],zmp_N):
-                Ciq_zmp.append(edge[i][:,:2]@zmp(t_))
-                biq_zmp.append(-edge[i][:,2])
-            Ciq_ = vstack(Ciq_zmp)
-            biq_ = hstack(biq_zmp)
+            # for t_ in np.linspace(0,duration[i],zmp_N):
+            #     Ciq_zmp.append(edge[i][:,:2]@zmp(t_))
+            #     biq_zmp.append(-edge[i][:,2])
+            # Ciq_ = vstack(Ciq_zmp)
+            # biq_ = hstack(biq_zmp)
             Q_=diagm(Q_seg)
             a_=hstack(a_seg)
             Ceq_=diagm(Ceq_seg)
@@ -178,9 +182,11 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=No
                 Q_regular = np.zeros((6,6))
                 c_regular = np.zeros(6)
                 for t_ in np.linspace(0,duration[i],reg_N):
-                    Q_regular+=nt(t_).T@nt(t_)
-                    c_regular+=nt(t_).T@nt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]
-                Q_seg.append(Acc(duration[i],0.01)+Q_regular)
+                    Q_regular+=nt(t_).T@nt(t_)+dnt(t_).T@dnt(t_)+ddnt(t_).T@ddnt(t_)
+                    c_regular+=nt(t_).T@nt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]\
+                                +dnt(t_).T@dnt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]\
+                                +ddnt(t_).T@ddnt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]
+                Q_seg.append(Acc(duration[i],acc_k)+Q_regular)
                 a_seg.append(np.zeros(6)+c_regular)
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
@@ -202,9 +208,11 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=No
                 Q_regular = np.zeros((6,6))
                 c_regular = np.zeros(6)
                 for t_ in np.linspace(0,duration[i],reg_N):
-                    Q_regular+=nt(t_).T@nt(t_)
-                    c_regular+=nt(t_).T@nt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]
-                Q_seg.append(Acc(duration[i],0.01)+nt(duration[i]).T@nt(duration[i])+Q_regular)
+                    Q_regular+=nt(t_).T@nt(t_)+dnt(t_).T@dnt(t_)+ddnt(t_).T@ddnt(t_)
+                    c_regular+=nt(t_).T@nt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]\
+                                +dnt(t_).T@dnt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]\
+                                +ddnt(t_).T@ddnt(t_)@coeff_regular[i*6*dim+j*6:i*6*dim+(j+1)*6]
+                Q_seg.append(Acc(duration[i],acc_k)+nt(duration[i]).T@nt(duration[i])+Q_regular)
                 a_seg.append(np.zeros(6)+(nt(duration[i])*fp[j]).reshape(-1)+c_regular)
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
@@ -222,7 +230,7 @@ def traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular,p=None,dp=None,ddp=No
             Q_=diagm(Q_seg)
             a_=hstack(a_seg)
             Ciq_ = vstack([Ciq_,diagm(Ciq_seg)])
-            biq_ = hstack([biq_,hstack(biq_seg),])
+            biq_ = hstack([biq_,hstack(biq_seg)])
             Ceq_sm_=diagm(Ceq_sm,6*dim)
             beq_sm_= hstack(beq_sm)
 
@@ -264,9 +272,10 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp):
     beq_all = np.zeros(0)
     Ciq_all = np.zeros((0,0))
     biq_all = np.zeros(0)
-    delta =0.01#in meter
+    delta =0.001#in meter
     n_seg = len(duration)
     dim  = len(stp)#
+    acc_k = 1
     for i in range(n_seg):
         #for the sampling of the line, we have some others formulations
         #for the qp slover
@@ -289,7 +298,7 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp):
 
         if i == 0 :#first segment
             for j in range(dim):
-                Q_seg.append(Acc(duration[i],0.01))
+                Q_seg.append(Acc(duration[i],acc_k))
                 a_seg.append(np.zeros(6))
                 Ceq_seg.append(vstack([nt(0),dnt(0),ddnt(0)]))
                 beq_seg.append(hstack([stp[j],dstp[j],ddstp[j]]))
@@ -300,7 +309,7 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp):
 
         elif i > 0 and i < n_seg-1:#middle segment
             for j in range(dim):
-                Q_seg.append(Acc(duration[i],0.01))
+                Q_seg.append(Acc(duration[i],acc_k))
                 a_seg.append(np.zeros(6))
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
@@ -319,7 +328,7 @@ def traj_opt_regular(duration,stp,dstp,ddstp,fp):
                 # coeff = 1
                 # coeff_1= 0.1
                 # traj_Q,traj_a = Q_traj(nt,[0.1],[p1[j]])
-                Q_seg.append(Acc(duration[i],0.01)+nt(duration[i]).T@nt(duration[i]))
+                Q_seg.append(Acc(duration[i],acc_k)+nt(duration[i]).T@nt(duration[i]))
                 a_seg.append(np.zeros(6)+(nt(duration[i])*fp[j]).reshape(-1))
                 #judge here by SAT about the acc smoothness
                 Ceq_sm.append(vstack([hstack([nt(duration[i-1]),np.zeros((1,6*(dim-1))),-nt(0)]),
@@ -417,6 +426,7 @@ def body_traj_show(duration,polygons,shrink_support,dim,coeff):
     tot_time = np.zeros(n_seg*N)
 
 
+
     for i in range(n_seg):  
         time = np.linspace(0,duration[i],N)
         for j in range(N):
@@ -431,36 +441,70 @@ def body_traj_show(duration,polygons,shrink_support,dim,coeff):
     LABEL={0:'x',1:'y',2:'z'}
     fig,ax = plt.subplots()
     for j in range(dim):
-        ax.plot(tot_time,traj_p[j,:],label='$pos_'+LABEL[j]+"$")
-    ax.legend()
-    ax.grid()
+        ax.plot(tot_time,traj_p[j,:],label=LABEL[j])
+    ax.legend(loc=1)
+    ax.set_xlabel('时间(s)')
+    ax.set_ylabel('位移(m)')
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(0.01))
+    ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.02))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.001))
+    fig.savefig(f_path+"traj_opt/Figure_"+str(1)+".pdf",pad_inches=0.005,bbox_inches='tight')
 
     fig,ax = plt.subplots()
     for j in range(dim):
-        ax.plot(tot_time,traj_dp[j,:],label='$vel_'+LABEL[j]+"$")
-    ax.legend()
-    ax.grid()
+        ax.plot(tot_time,traj_dp[j,:],label=LABEL[j])
+    ax.legend(loc=1)
+    ax.set_xlabel('时间(s)')
+    ax.set_ylabel('速度(m/s)')
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(0.04))
+    ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.02))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.004))
+    fig.savefig(f_path+"traj_opt/Figure_"+str(2)+".pdf",pad_inches=0.005,bbox_inches='tight')
+    
 
     fig,ax = plt.subplots()
     for j in range(dim):
-        ax.plot(tot_time,traj_ddp[j,:],label="$acc_"+LABEL[j]+"$")
-    ax.legend()
-    ax.grid()
+        ax.plot(tot_time,traj_ddp[j,:],label=LABEL[j])
+    ax.legend(loc=1)
+    ax.set_xlabel('时间(s)')
+    ax.set_ylabel('加速度(m/s^2)')
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(0.4))
+    ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.02))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.04))
+    fig.savefig(f_path+"traj_opt/Figure_"+str(3)+".pdf",pad_inches=0.005,bbox_inches='tight')
+    
 
     fig,ax = plt.subplots()
-    ax.plot(traj_p[0,:],traj_p[1,:],"k")
+    ax.plot(traj_p[0,:],traj_p[1,:],"k",label='质心轨迹')
     ax.plot(traj_p[0,0:-1:N],traj_p[1,0:-1:N],"ko")
-    ax.plot(traj_zmp[0,:],traj_zmp[1,:],"--g")
+    ax.plot(traj_zmp[0,:],traj_zmp[1,:],"--g",label="零矩点轨迹")
     ax.plot(traj_zmp[0,0:-1:N],traj_zmp[1,0:-1:N],"r*")
-    ax.grid()
+    ax.set_xlabel('x方向位移(m)')
+    ax.set_ylabel('y方向位移(m)')
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(0.04))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(0.04))
+    ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.004))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.004))
+    ax.legend(loc=1)
+    fig.savefig(f_path+"traj_opt/Figure_"+str(4)+".pdf",pad_inches=0.005,bbox_inches='tight')
 
     for i in range(len(polygons)):
         fig,ax = plt.subplots()
-        ax.plot(traj_p[0,:],traj_p[1,:],"k")
+        ax.plot(traj_p[0,:],traj_p[1,:],"k",label='质心')
         ax.plot(traj_p[0,[i*N,(i+1)*N-1]],traj_p[1,[i*N,(i+1)*N-1]],"ko")
-        ax.plot(traj_zmp[0,:],traj_zmp[1,:],"--g")
+        ax.plot(traj_zmp[0,:],traj_zmp[1,:],"--g",label='零矩点')
         ax.plot(traj_zmp[0,[i*N,(i+1)*N-1]],traj_zmp[1,[i*N,(i+1)*N-1]],"r*")
         plot_convex_shape(ax,polygons[i][0],'b')
         plot_convex_shape(ax,shrink_support[i][0],'y')
-        ax.grid()
+        ax.set_xlabel('x方向位移(m)')
+        ax.set_ylabel('y方向位移(m)')
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.08))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(0.08))
+        ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.008))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.008))
+        ax.legend(loc=1)
+        fig.savefig(f_path+"traj_opt/Figure_"+str(i+5)+".pdf",pad_inches=0.005,bbox_inches='tight')
         # plot_convex_quiver(shrink_support[i][0],edge[i],'r')

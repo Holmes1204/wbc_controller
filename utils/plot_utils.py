@@ -8,9 +8,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-DEFAULT_FONT_SIZE = 12;
+DEFAULT_FONT_SIZE = 10.5
 DEFAULT_AXIS_FONT_SIZE = DEFAULT_FONT_SIZE;
-DEFAULT_LINE_WIDTH = 2; #13;
+DEFAULT_LINE_WIDTH = 1.25; #13;
 DEFAULT_MARKER_SIZE = 4;
 DEFAULT_FONT_FAMILY = 'sans-serif'
 DEFAULT_FONT_SERIF = ['Times New Roman', 'Times','Bitstream Vera Serif', 'DejaVu Serif', 'New Century Schoolbook', 'Century Schoolbook L', 'Utopia', 'ITC Bookman', 'Bookman', 'Nimbus Roman No9 L', 'Palatino', 'Charter', 'serif'];
@@ -26,20 +26,37 @@ SHOW_FIGURES = False;
 FIGURE_PATH = './';
 
 mpl.rcdefaults()
+
+from matplotlib.font_manager import fontManager as fm
+font_size = 10.5
+fm.addfont('/home/holmes/.local/share/fonts/Nsimsun.ttf')
+fm.addfont('/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf')
+textwidth = 5.9#inch
+w = 0.6*textwidth
+# 创建一个图表
+plt.rcParams['figure.figsize']=(w,0.75*w)
+plt.rcParams['figure.dpi']=300
+plt.rcParams['savefig.dpi']=300
+plt.rcParams['xtick.labelsize']=font_size
+plt.rcParams['ytick.labelsize']=font_size
+plt.rcParams['font.family'] = ['sans-serif','NSimSun']
+plt.rcParams['font.sans-serif'] = ['Times New Roman']
+plt.rcParams['font.size']=font_size
 mpl.rcParams['figure.autolayout']   = True;
 mpl.rcParams['lines.linewidth']     = DEFAULT_LINE_WIDTH;
 mpl.rcParams['lines.markersize']    = DEFAULT_MARKER_SIZE;
 mpl.rcParams['patch.linewidth']     = 1;
-mpl.rcParams['font.family']         = DEFAULT_FONT_FAMILY;
-mpl.rcParams['font.size']           = DEFAULT_FONT_SIZE;
-mpl.rcParams['font.serif']          = DEFAULT_FONT_SERIF;
-mpl.rcParams['text.usetex']         = DEFAULT_TEXT_USE_TEX;
-mpl.rcParams['axes.labelsize']      = DEFAULT_AXES_LABEL_SIZE;
+# mpl.rcParams['font.family']         = DEFAULT_FONT_FAMILY;
+# mpl.rcParams['font.size']           = DEFAULT_FONT_SIZE;
+# mpl.rcParams['font.serif']          = DEFAULT_FONT_SERIF;
+# mpl.rcParams['text.usetex']         = DEFAULT_TEXT_USE_TEX;
+mpl.rcParams['axes.labelsize']      = font_size;
 mpl.rcParams['axes.grid']           = True
-mpl.rcParams['legend.fontsize']     = DEFAULT_LEGEND_FONT_SIZE;
-mpl.rcParams['legend.framealpha']   = 0.5                           # opacity of of legend frame
-mpl.rcParams['figure.facecolor']    = DEFAULT_FIGURE_FACE_COLOR;
-mpl.rcParams['figure.figsize']      = 8, 7 #12, 9 #
+# mpl.rcParams['legend.fontsize']     = DEFAULT_LEGEND_FONT_SIZE;
+mpl.rcParams['legend.framealpha']   = 0.5
+mpl.rcParams['figure.max_open_warning'] = 50                          # opacity of of legend frame
+# mpl.rcParams['figure.facecolor']    = DEFAULT_FIGURE_FACE_COLOR;
+# mpl.rcParams['figure.figsize']      = 8, 7 #12, 9 #
 
 
 def create_empty_figure(nRows=1, nCols=1, spinesPos=None,sharex=True):

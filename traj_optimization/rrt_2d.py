@@ -1,5 +1,8 @@
 import random
 import math
+import sys
+sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+import utils.plot_utils as plut
 
 class Node:
     def __init__(self, x, y,parent=None):
@@ -8,7 +11,7 @@ class Node:
         self.parent = parent
 
 class RRTConnect:
-    def __init__(self, start, goal, obstacle_list, max_iter=1000, delta=0.1, epsilon=0.1):
+    def __init__(self, start, goal, obstacle_list, max_iter=1000, delta=0.05, epsilon=0.001):
         self.start = Node(start[0], start[1])
         self.goal = Node(goal[0], goal[1])
         self.obstacle_list = obstacle_list
@@ -33,11 +36,22 @@ class RRTConnect:
 
             new_node1 = self.steer(nearest1, rnd)
             new_node2 = self.steer(nearest2, rnd)
-
-            if self.check_collision(new_node1, self.obstacle_list):
+            N = 10.0
+            not_trap = True
+            for i in range(0,int(N)+1):
+                n =Node((N-i)/N*new_node1.x+i/10.0*nearest1.x,(N-i)/N*new_node1.y+i/10.0*nearest1.y)
+                if self.check_collision(n, self.obstacle_list):
+                    not_trap =False
+                    break
+            if not_trap:
                 self.node_list1.append(new_node1)
-
-            if self.check_collision(new_node2, self.obstacle_list):
+            not_trap = True
+            for i in range(0,int(N)+1):
+                n =Node((N-i)/N*new_node2.x+i/10.0*nearest2.x,(N-i)/N*new_node2.y+i/10.0*nearest2.y)
+                if self.check_collision(n, self.obstacle_list):
+                    not_trap =False
+                    break
+            if not_trap:
                 self.node_list2.append(new_node2)
 
             if self.is_same_node(new_node1, new_node2):
@@ -68,8 +82,8 @@ class RRTConnect:
     def check_collision(self, node, obstacle_list):
         for obs in obstacle_list:
             if math.sqrt((node.x - obs[0])**2 + (node.y - obs[1])**2) <= obs[2]:
-                return False
-        return True
+                return True
+        return False
 
     def is_same_node(self, node1, node2):
         dist = math.sqrt((node1.x - node2.x)**2 + (node1.y - node2.y)**2)
@@ -79,7 +93,7 @@ class RRTConnect:
         path1 = self.get_path(node1)
         path1.reverse()
         path2 = self.get_path(node2)
-        return path1 + path2
+        return self.node_list1,self.node_list2,path1,path2,path1 + path2
 
     def get_path(self, node):
         path = []
@@ -92,28 +106,43 @@ class RRTConnect:
 
 
 
+f_path = '/home/holmes/Desktop/graduation/hitsz_paper/pictures/'
 import matplotlib.pyplot as plt
-
+import matplotlib.ticker as ticker
 # Example usage
 start = (0, 0)
 goal = (1, 1)
-obstacle_list = [(0.5, 0.5, 0.1),
-                 (0.3,0.7,0.1),
-                 (0.7,0.3,0.1)]
+obstacle_list = [(0.4, 0.4, 0.2),
+                 (0.3,0.8,0.2),
+                 (0.8,0.3,0.2)]
 
 rrt = RRTConnect(start, goal, obstacle_list)
-path = rrt.plan()
+t_s,t_e,path_s,path_e,path = rrt.plan()
+fig, ax = plt.subplots()
+pad = 0.1
+low = 0 -pad
+up = 1+pad
 
 if path is not None:
-    plt.plot([node[0] for node in path], [node[1] for node in path], '-r')
-    
-    plt.plot(start[0], start[1], 'bo')
-    plt.plot(goal[0], goal[1], 'bo')
+    ax.plot([node.x for node in t_s], [node.y for node in t_s], 'oy',label='起点树节点')
+    ax.plot([node.x for node in t_e], [node.y for node in t_e], '*g',label='终点树节点')
+    ax.plot([node[0] for node in path_s], [node[1] for node in path_s], 'or')
+    ax.plot([node[0] for node in path_e], [node[1] for node in path_e], '*r')
+    ax.plot([node[0] for node in path], [node[1] for node in path], '-r',label='全局轨迹')
+    ax.plot(start[0], start[1], 'bo')
+    ax.plot(goal[0], goal[1], 'bo')
     for obs in obstacle_list:
-        circle = plt.Circle((obs[0], obs[1]), obs[2], color='k')
+        circle = plt.Circle((obs[0], obs[1]), obs[2]-0.1, color='k')
         plt.gcf().gca().add_artist(circle)
-    plt.grid()
-    plt.axis('scaled')
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(0.2))
+    ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.02))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.02))
+    ax.set_xlabel('x方向距离(m)')
+    ax.set_ylabel('y方向距离(m)')
+    ax.axis([low,up]*2)
+    ax.legend(loc=0)
+    fig.savefig(f_path+"kd_rrt/Figure_3.pdf",pad_inches=0.005)
     plt.show()
 
 else:

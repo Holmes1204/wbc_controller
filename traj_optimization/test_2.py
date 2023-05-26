@@ -5,7 +5,9 @@ from numpy.linalg import matrix_rank as rank,inv
 from numpy import hstack,vstack,array
 from copy import deepcopy
 from traj import traj_opt,traj_opt_regular,body_traj_show
-
+import sys
+sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+import utils.plot_utils as plut
 def Acc(T,alpha=1e-8):
     return np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],
                      [40*pow(T,6),144/5*pow(T,5),18*pow(T,4),8*pow(T,3),0,0],
@@ -84,6 +86,8 @@ def plot_convex_shape(ax,vertices_, color='k'):
     x.append(vertices[0][0])  # Add the first vertex to close the shape
     y.append(vertices[0][1])  # Add the first vertex to close the shape
     ax.plot(x, y,color+"-.")
+    ax.grid()
+
 
 
 def plot_convex_quiver(ax,vertices,edge=None, color='k'):
@@ -96,11 +100,12 @@ def plot_convex_quiver(ax,vertices,edge=None, color='k'):
     midx = [(x[i]+x[i+1])/2.0 for i in range(len(x)-1)]
     midy = [(y[i]+y[i+1])/2.0 for i in range(len(y)-1)]
     ax.plot(x, y, color+"-.")
+    ax.grid()
     if edge is not None:
         ax.quiver(midx,midy,edge[:,0],edge[:,1],color='k')
 
 
-def reduce_convex(polygon_set,s=0.025,w=0.025):
+def reduce_convex(polygon_set,s=0.05,w=0.025):
     """reduce the shape of the support polygons"""
     def calcualte_p(num,modified_vertex,origin_vertex):
         c = np.zeros(num)
@@ -149,67 +154,55 @@ def reduce_convex(polygon_set,s=0.025,w=0.025):
 
 
 
-#leg sequence is changed, and the  3rd column is the RR leg, and the 4th column is the RF leg
-# dx = 0.2
-# dy = 0.2
-# polygons = [(np.array([[0.5,   0.25],[0.5   ,-0.25] ,[-0.5   ,-0.25],[-0.5   ,0.25]]),0.05),#0.05-0.0 all down until LF lift
-#             (np.array([              [0.5   ,-0.25] ,[-0.5   ,-0.25],[-0.5   ,0.25]]),0.15),#0.2-0.05,LF lift until RR lift
-#             (np.array([              [0.5   ,-0.25]                 ,[-0.5   ,0.25]]),0.10),#0.3-0.2 RR lift until LF touch
-#             (np.array([[0.5+dx,0.25],[0.5   ,-0.25]                 ,[-0.5   ,0.25]]),0.15),#0.45-0.3LF touch until RR touch
-#             (np.array([[0.5+dx,0.25],[0.5   ,-0.25] ,[-0.5+dx,-0.25],[-0.5   ,0.25]]),0.10),#0.55-0.45 all touch until LR lift
-#             (np.array([[0.5+dx,0.25],                [-0.5+dx,-0.25],[-0.5   ,0.25]]),0.15),#0.70-0.55 FR lift until RL lift
-#             (np.array([[0.5+dx,0.25],                [-0.5+dx,-0.25]               ]),0.10),#0.80-0.70 RL lift until FR touch
-#             (np.array([[0.5+dx,0.25],[0.5+dx,-0.25] ,[-0.5+dx,-0.25]               ]),0.15),#0.95-0.8FR touch until RL touch
-#             (np.array([[0.5+dx,0.25],[0.5+dx,-0.25] ,[-0.5+dx,-0.25],[-0.5+dx,0.25]]),0.05)]#1.0 -0.95 RL touch until next sequnece
 
-# polygons = [[[[0.5,   0.25],[0.5   ,-0.25] ,[-0.5   ,-0.25],[-0.5   ,0.25]],0.05],#0.05-0.0 all down until LF lift
-#             [[None         ,[0.5   ,-0.25] ,[-0.5   ,-0.25],[-0.5   ,0.25]],0.15],#0.2-0.05,LF lift until RR lift
-#             [[None         ,[0.5   ,-0.25] ,None           ,[-0.5   ,0.25]],0.10],#0.3-0.2 RR lift until LF touch
-#             [[[0.5+dx,0.25],[0.5   ,-0.25] ,None           ,[-0.5   ,0.25]],0.15],#0.45-0.3LF touch until RR touch
-#             [[[0.5+dx,0.25],[0.5   ,-0.25] ,[-0.5+dx,-0.25],[-0.5   ,0.25]],0.10],#0.55-0.45 all touch until LR lift
-#             [[[0.5+dx,0.25],None           ,[-0.5+dx,-0.25],[-0.5   ,0.25]],0.15],#0.70-0.55 FR lift until RL lift
-#             [[[0.5+dx,0.25],None           ,[-0.5+dx,-0.25],None          ],0.10],#0.80-0.70 RL lift until FR touch
-#             [[[0.5+dx,0.25],[0.5+dx,-0.25] ,[-0.5+dx,-0.25],None          ],0.15],#0.95-0.8FR touch until RL touch
-#             [[[0.5+dx,0.25],[0.5+dx,-0.25] ,[-0.5+dx,-0.25],[-0.5+dx,0.25]],0.05]]#1.0 -0.95 RL touch until next sequnece
-# for i in range(len(polygons)):
-#     for j in range(len(polygons[i][0])):
-#         if polygons[i][0][j] is not None:
-#             polygons[i][0][j] = np.array(polygons[i][0][j])
-#         else:
-#             polygons[i][0][j] = None
-
-polygons = [[[array([0.2, 0.1]),
-   array([ 0.2, -0.1]),
-   array([-0.2, -0.1]),
-   array([-0.2,  0.1])],0.05],
- [[None, array([ 0.2, -0.1]), array([-0.2, -0.1]), array([-0.2,  0.1])],
-  0.15000000000000002],
- [[None, array([ 0.2, -0.1]), None, array([-0.2,  0.1])], 0.09999999999999998],
- [[array([0.422, 0.1  ]), array([ 0.2, -0.1]), None, array([-0.2,  0.1])],
-  0.15000000000000002],
- [[array([0.422, 0.1  ]),
-   array([ 0.2, -0.1]),
-   array([ 0.022, -0.1  ]),
-   array([-0.2,  0.1])],
-  0.10000000000000003],
- [[array([0.422, 0.1  ]), None, array([ 0.022, -0.1  ]), array([-0.2,  0.1])],
-  0.1499999999999999],
- [[array([0.422, 0.1  ]), None, array([ 0.022, -0.1  ]), None],
-  0.10000000000000009],
- [[array([0.422, 0.1  ]),
-   array([ 0.422, -0.1  ]),
-   array([ 0.022, -0.1  ]),
-   None],
-  0.1499999999999999],
- [[array([0.422, 0.1  ]),
-   array([ 0.422, -0.1  ]),
-   array([ 0.022, -0.1  ]),
-   array([0.022, 0.1  ])],
-  0.050000000000000044]]
-
-
+#motion 2
+# polygons=[[[None, array([ 0.301, -0.149]), None, array([-0.066,  0.124])], 0.04999999999999949],
+# [[None, array([ 0.301, -0.149]), array([-0.033, -0.146]), array([-0.066,  0.124])], 0.1499999999999999],
+# [[array([0.354, 0.121]), array([ 0.301, -0.149]), array([-0.033, -0.146]), array([-0.066,  0.124])], 0.10000000000000003],
+# [[array([0.354, 0.121]), array([ 0.301, -0.149]), array([-0.033, -0.146]), None], 0.15000000000000002],
+# [[array([0.354, 0.121]), None, array([-0.033, -0.146]), None], 0.09999999999999992],
+# [[array([0.354, 0.121]), None, array([-0.033, -0.146]), array([-0.001,  0.107])], 0.15000000000000013],
+# [[array([0.354, 0.121]), array([ 0.36 , -0.155]), array([-0.033, -0.146]), array([-0.001,  0.107])], 0.09999999999999998],
+# [[array([0.354, 0.121]), array([ 0.36 , -0.155]), None, array([-0.001,  0.107])], 0.1499999999999999],
+# [[None, array([ 0.36 , -0.155]), None, array([-0.001,  0.107])], 0.0500000000000006]]
+# stp=array([ 0.067, -0.024])
+# dstp=array([ 0.188, -0.345])
+# ddstp=array([0., 0.])
+# fp=array([ 0.177, -0.024])
 #modified data structure
+#motion 1
 
+# from matplotlib.font_manager import fontManager as fm
+# import matplotlib.pyplot as plt
+# import matplotlib.ticker as ticker
+# fm.addfont('/home/holmes/.local/share/fonts/Nsimsun.ttf')
+# fm.addfont('/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf')
+# textwidth = 5.9#inch
+# w = 0.45*textwidth
+# font_size = 10.5
+# # 创建一个图表
+# plt.rcParams['figure.figsize']=(w,w)
+# plt.rcParams['figure.dpi']=300
+# plt.rcParams['savefig.dpi']=300
+# plt.rcParams['xtick.labelsize']=font_size
+# plt.rcParams['ytick.labelsize']=font_size
+# plt.rcParams['font.family'] = ['sans-serif','NSimSun']
+# plt.rcParams['font.sans-serif'] = ['Times New Roman']
+# plt.rcParams['font.size']=font_size
+
+polygons=[[[array([0.174, 0.131]), array([ 0.174, -0.131]), array([-0.187, -0.131]), array([-0.187,  0.131])], 0.05],
+[[array([0.174, 0.131]), array([ 0.174, -0.131]), array([-0.187, -0.131]), None], 0.15000000000000002],
+[[array([0.174, 0.131]), None, array([-0.187, -0.131]), None], 0.09999999999999998],
+[[array([0.174, 0.131]), None, array([-0.187, -0.131]), array([-0.068,  0.131])], 0.15000000000000002],
+[[array([0.174, 0.131]), array([ 0.293, -0.131]), array([-0.187, -0.131]), array([-0.068,  0.131])], 0.10000000000000003],
+[[array([0.174, 0.131]), array([ 0.293, -0.131]), None, array([-0.068,  0.131])], 0.1499999999999999],
+[[None, array([ 0.293, -0.131]), None, array([-0.068,  0.131])], 0.10000000000000009],
+[[None, array([ 0.293, -0.131]), array([-0.068, -0.131]), array([-0.068,  0.131])], 0.1499999999999999],
+[[array([0.293, 0.131]), array([ 0.293, -0.131]), array([-0.068, -0.131]), array([-0.068,  0.131])], 0.050000000000000044]]
+stp=array([0., 0.])
+dstp=array([0., 0.])
+ddstp=array([0., 0.])
+fp=array([0.1, 0. ])
 #
 
 # print(polygons[2])
@@ -231,21 +224,18 @@ duration=[polygons[j][1] for j in range(len(polygons))]
 shrink_support,edge = reduce_convex(polygons)
 # c_point = [sum(polygons[j][0])/4 for j in range(len(polygons))]
 duration_=duration
-stp=[0,0]
-dstp=[0.,0.]
-ddstp=[0.,0.]
-fp=[0.36,0.0]
-p1=[0.5,1.25]
 #
-n_seg = 2 #number of segments
 dim = 2 #number of coordinates
-delta = 0.01
-
+# for i in range(len(polygons)):
+#     fig,ax = plt.subplots()
+#     plot_convex_shape(ax,polygons[i][0],'b')
+#     # plot_convex_shape(ax,shrink_support[i][0],'y')
+#     plot_convex_quiver(ax,shrink_support[i][0],edge[i],'r')
+# plt.show()
 coeff_regular =traj_opt_regular(duration,stp,dstp,ddstp,fp)
 coeff =traj_opt(duration,stp,dstp,ddstp,fp,edge,coeff_regular)
-
 body_traj_show(duration,polygons,shrink_support,dim,coeff)
-# N =100
+# N =100S
 # n_seg = len(duration)
 # traj_p = np.zeros((dim,n_seg*N))
 # traj_zmp = np.zeros((dim,n_seg*N))
@@ -301,6 +291,5 @@ body_traj_show(duration,polygons,shrink_support,dim,coeff)
 #     plot_convex_shape(ax,shrink_support[i][0],'y')
 #     ax.grid()
 #     # plot_convex_quiver(shrink_support[i][0],edge[i],'r')
-
 
 plt.show()

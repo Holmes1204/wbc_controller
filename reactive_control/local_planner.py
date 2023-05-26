@@ -110,7 +110,7 @@ def plot_convex_quiver(vertices,edge=None, color='k'):
 
 
 
-def reduce_convex(polygon_set,s=0.025,w=0.025):
+def reduce_convex(polygon_set,s=0.05,w=0.025):
     """reduce the shape of the support polygons"""
     def calcualte_p(num,modified_vertex,origin_vertex):
         c = np.zeros(num)
@@ -319,7 +319,7 @@ class local_planner:
         self.traj_tot_time = sum(self.duration)
         self.cum_duration = np.cumsum(self.duration)
         coeff_regular =traj_opt_regular(self.duration,stp,dstp,ddstp,fp)
-        # r_coeff =traj_opt(self.duration,stp,dstp,ddstp,fp,edge,coeff_regular)
+        r_coeff =traj_opt(self.duration,stp,dstp,ddstp,fp,edge,coeff_regular)
         self.coeff = coeff_regular
         # body_traj_show(self.duration,support_polygon,shrink_polygon,2,self.coeff)
         self.traj_time = 0
@@ -339,11 +339,12 @@ class local_planner:
                         a[k] = ddnt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
                     self.traj_time +=dt
                     return p,v,a
-        # else:
-        #     time = self.traj_tot_time- self.cum_duration[-2]
-        #     for k in range(2):
-        #         p[k] =   nt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
-        #     return p,v,a
+        else:
+            i = len(self.cum_duration)-1
+            time = self.traj_tot_time- self.cum_duration[-2]
+            for k in range(2):
+                p[k] =   nt(time)@self.coeff[i*6*dim+k*6:i*6*dim+(k+1)*6]
+            return p,v,a
         #follow the time splice and get the reference  
 
     # def body_traj_show(self):

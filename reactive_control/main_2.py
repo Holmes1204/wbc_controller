@@ -13,20 +13,29 @@ import main_2_conf as conf
 import pinocchio as pin
 from reactive_control.local_planner import local_planner,reduce_convex
 from solutions.WBC_HO import task,WBC_HO
-
+f_path = '/home/holmes/Desktop/graduation/hitsz_paper/pictures/'
 
 
 print("".center(conf.LINE_WIDTH,'#'))       
 print(" Quadrupedal Robot".center(conf.LINE_WIDTH, '#'))
 print("".center(conf.LINE_WIDTH,'#'), '\n')
 
-PLOT_EE_POS = 1
-PLOT_BODY_POS = 1
-PLOT_BODY_VEL = 1
-PLOT_DOG_JOINT_POS = 1
-PLOT_ARM_JOINT_POS = 1 
-PLOT_DOG_TORQUES = 1
-PLOT_ARM_TORQUES = 1
+PLOT_EE_POS = 0
+PLOT_EE_VEL = 0
+
+PLOT_BODY_POS = 0
+PLOT_BODY_VEL = 0
+PLOT_BODY_ACC = 0
+
+PLOT_DOG_JOINT_POS = 0
+PLOT_DOG_JOINT_VEL = 0
+PLOT_DOG_JOINT_ACC = 0
+PLOT_DOG_JOINT_TOR = 0
+
+PLOT_ARM_JOINT_POS =0
+PLOT_ARM_JOINT_VEL =0
+PLOT_ARM_JOINT_ACC =0
+PLOT_ARM_JOINT_TOR =0
 
 rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("./a1_description/urdf/a1_kinova.urdf", "./",pin.JointModelFreeFlyer())
 robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)
@@ -59,6 +68,10 @@ ddx     = np.empty((ndx, N))*nan        # end effector acceleration
 #
 mx   = np.empty((nx,  N))*nan        # end-effector reference position
 mx_ref   = np.empty((nx,  N))*nan        # end-effector reference position
+dmx   = np.empty((nx,  N))*nan        # end-effector reference position
+dmx_ref   = np.empty((nx,  N))*nan        # end-effector reference position
+ddmx_ref   = np.empty((nx,  N))*nan        # end-effector reference position
+
 traj_bp  = np.empty((ndx, N))*nan        # end-effector reference velocity
 traj_dbp = np.empty((ndx, N))*nan        # end-effector reference acceleration
 traj_ddbp = np.empty((ndx, N))*nan        # end-effector desired acceleration
@@ -149,7 +162,7 @@ for ss in range(0, N):#ss: simualtion step
     #----------feed back over---------
     #foot update
     local_plan.update_foot(p_f,p_h,dx_bp,dx_bp)
-    if ss%250 == 0:
+    if ss == 0:
         # local_plan.body_traj_show()
         stp = x_bp[:2]
         dstp =dx_bp[:2]
@@ -252,7 +265,7 @@ for ss in range(0, N):#ss: simualtion step
         #add all the task
         tasks.append(task(A1,b1,D1,f1,0))
         tasks.append(task(A2,b2,D2,f2,1))
-        tasks.append(task(A4,b4,None,None,4))
+        tasks.append(task(A4,b4,None,None,2))
     else:
         J_sw = J_f
         dJdq_sw = dJdq_sw
@@ -263,12 +276,15 @@ for ss in range(0, N):#ss: simualtion step
     #set reference
     Kp_bp = 1000
     Kd_bp = 2*sqrt(Kp_bp)
-    Kp_bR = 1000
+    Kp_bR = 100
     Kd_bR = 2*sqrt(Kp_bR)
     traj_p,traj_dp,traj_ddp = local_plan.body_traj_update(conf.dt)
-    x_bp_des = np.array([traj_p[0],traj_dp[1],0.32])
-    dx_bp_des = np.array([traj_dp[0],traj_dp[1],0])
-    ddx_bp_des = np.array([traj_ddp[0],traj_ddp[1],0])
+    # x_bp_des = np.array([traj_p[0],traj_dp[1],0.32])
+    # dx_bp_des = np.array([traj_dp[0],traj_dp[1],0])
+    # ddx_bp_des = np.array([traj_ddp[0],traj_ddp[1],0])
+    x_bp_des = np.array([0.75*(ss/N)*(ss/N)/2.0,0.0,0.32])
+    dx_bp_des = np.array([0.75*ss/N,0.0,0])
+    ddx_bp_des = np.array([0.75,0,0])
     # x_bp_des   = np.array([0.0,0.0,0.32])
     # dx_bp_des  = np.array([0.0,0.0,0.0])
     # ddx_bp_des = np.array([0.0,0.0,0.0])
@@ -283,34 +299,35 @@ for ss in range(0, N):#ss: simualtion step
                     np.hstack([J_bR,np.zeros((3,nt))])])
     b3 = np.hstack([-dJdq_bp+Kp_bp*(x_bp_des-x_bp)+Kd_bp*(dx_bp_des-dx_bp)+ddx_bp_des,
                     -dJdq_bR+Kp_bR*(pin.log3(x_bR_des.dot(x_bR.T)))+Kd_bR*(dx_bR_des-dx_bR)])
-    tasks.append(task(A3,b3,None,None,4))
+    tasks.append(task(A3,b3,None,None,2))
     #set reference (world frame)
-    Kp_mp = 10000
+    Kp_mp = 100
     Kd_mp = 2*sqrt(Kp_mp)
-    Kp_mR = 10
+    Kp_mR = 100
     Kd_mR = 2*sqrt(Kp_mR)
-    f = 0.005
+    f = 1
     omega = 2*pi*f
-    amp = np.array([0.0,0.0,0.0])
-    x_mp_des = np.array([ 0.703, -0.01 ,  0.661])+amp*np.sin([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
-    # x_mp_des = x_mp
-    q0 =[1.5707,2.618,-1.5707,-1.5707,3.1415, 0.]
-    x_mR_des = x_mR
+    amp = np.array([0.05,-0.05,0.05])
+    x_mp_des = x_bp_des+np.array([ 0.703, -0.01 ,  0.661-x_bp_des[2]])+amp*np.sin([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
     dx_mp_des= np.array([0,0,0])+amp*omega*np.cos([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
-    dx_mR_des = np.array([0,0,0])
     ddx_mp_des= -amp*omega*omega*np.sin([omega*t,omega*t+2*pi/3,omega*t-2*pi/3])
+    x_mR_des = np.eye(3)
+    dx_mR_des = np.array([0,0,0])
     #create task
-    # A5 = np.vstack([np.hstack([J_mp,np.zeros((3,nt))]),
-    #                 np.hstack([J_mR,np.zeros((3,nt))])])
-    # b5 = np.hstack([-dJdq_mp+Kp_mp*(x_mp_des-x_mp)+Kd_mp*(dx_mp_des-dx_mp)+ddx_mp_des,
-    #                 -dJdq_mR+Kp_mR*(pin.log3(x_mR_des.dot(x_mR.T)))+Kd_mR*(dx_mR_des-dx_mR)])
-    A5 = np.hstack([np.zeros((6,18)),np.eye(6),np.zeros((6,nt))])
-    b5 = np.hstack(Kp_mp*(q0-q[-6:,ss])-Kd_mp*v[-6:,ss])
-    tasks.append(task(A5,b5,None,None,5))
+    A5 = np.vstack([np.hstack([J_mp,np.zeros((3,nt))]),
+                    np.hstack([J_mR,np.zeros((3,nt))])])
+    b5 = np.hstack([-dJdq_mp+Kp_mp*(x_mp_des-x_mp)+Kd_mp*(dx_mp_des-dx_mp)+ddx_mp_des,
+                    -dJdq_mR+Kp_mR*(pin.log3(x_mR_des.dot(x_mR.T)))+Kd_mR*(dx_mR_des-dx_mR)])
+    # q0 =[1.5707,2.618,-1.5707,-1.5707,3.1415, 0.]
+    # A5 = np.hstack([np.zeros((6,18)),np.eye(6),np.zeros((6,nt))])
+    # b5 = np.hstack(Kp_mp*(q0-q[-6:,ss])-Kd_mp*v[-6:,ss])
+    tasks.append(task(A5,b5,None,None,3))
     
     #record to print the data
     mx[:,ss]= x_mp
     mx_ref[:,ss] = x_mp_des
+    dmx[:,ss]= dx_mp
+    dmx_ref[:,ss] = dx_mp_des
     #calculate the ouput
     out = WBC_HO(tasks).solve()
     F = inv(R)@Q_c.T@(M@out[:nv]+h-S.T@out[nv:])
@@ -328,117 +345,215 @@ for ss in range(0, N):#ss: simualtion step
 LABEL={
     0:'x',1:'y',2:'z'
 }
+
+LEG_LABEL={
+    0:'LF',1:'RF',2:'LR',3:'RR'
+}
+
+import matplotlib.ticker as ticker
+def set_ticks(ax,x,y):
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(x))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(y))
+    ax.xaxis.set_minor_locator(ticker.MultipleLocator(x/10))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(y/10))
+
 # PLOT STUFF
 time = np.arange(0.0, N*conf.dt, conf.dt)
 if(PLOT_EE_POS):    
-    (f, ax) = plut.create_empty_figure(nx)
-    title = "EE_POS"
-    f.suptitle(title, fontsize=16)
-    f.canvas.manager.set_window_title(title)
-    ax = ax.reshape(nx)
     for i in range(nx):
-        ax[i].plot(time, mx[i,:], label='EE_pos')
-        ax[i].plot(time, mx_ref[i,:], '--', label='ref')
-        ax[i].set_xlabel('Time [s]')
-        ax[i].set_ylabel(r''+LABEL[i]+' [m]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
+        f, ax = plt.subplots()
+        title = "EE_POS"+LABEL[i]
+        f.canvas.manager.set_window_title(title)
+        ax.plot(time, mx[i,:], label=LABEL[i])
+        ax.plot(time, mx_ref[i,:], '--', label=LABEL[i]+'期望')
+        ax.set_xlabel('时间(s)')
+        ax.set_ylabel('位移(m)')
+        ax.set_xlim(0,conf.T_SIMULATION)
+        set_ticks(ax,conf.T_SIMULATION/5,0.02)
+        ax.legend(loc=1)
+        f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight')
     
-if(PLOT_BODY_POS):    
-    (f, ax) = plut.create_empty_figure(3)
-    ax = ax.reshape(3)
-    title = "BODY_POS"
-    f.suptitle(title, fontsize=16)
-    f.canvas.manager.set_window_title(title)
-    for i in range(3):
-        ax[i].plot(time, q[i,:-1], label='body_pos')
-        ax[i].plot(time, traj_bp[i,:], '--', label='ref')
-        ax[i].set_xlabel('Time [s]')
-        ax[i].set_ylabel(r''+LABEL[i]+' [m]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
+if(PLOT_EE_VEL):  
+    for i in range(nx):  
+        f, ax = plt.subplots()
+        title = "EE_VEL"+LABEL[i]
+        f.canvas.manager.set_window_title(title)
+        ax.plot(time, dmx[i,:], label=LABEL[i])
+        ax.plot(time, dmx_ref[i,:], '--', label=LABEL[i]+'期望')
+        ax.set_xlabel('时间(s)')
+        ax.set_ylabel('速度(m/s)')
+        ax.set_xlim(0,conf.T_SIMULATION)
+        set_ticks(ax,conf.T_SIMULATION/5,0.2)
+        ax.legend(loc=1)
+        f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight')
+
+
+
+if(PLOT_BODY_POS):   
+    for i in range(nx):  
+        f, ax = plt.subplots()
+        title = "BODY_POS"+LABEL[i]
+        f.canvas.manager.set_window_title(title)
+        ax.plot(time, q[i,:-1], label=LABEL[i])
+        ax.plot(time, traj_bp[i,:], '--', label=LABEL[i]+'期望')
+        ax.set_xlabel('时间(s)')
+        ax.set_ylabel('位移(m)')
+        ax.set_xlim(0,conf.T_SIMULATION)
+        set_ticks(ax,conf.T_SIMULATION/5,0.2)
+        ax.legend(loc=1)
+        f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight') 
+
 
 if(PLOT_BODY_VEL):    
-    (f, ax) = plut.create_empty_figure(3)
-    ax = ax.reshape(3)
-    title = "BODY_VEL"
-    f.suptitle(title, fontsize=16)
-    f.canvas.manager.set_window_title(title)
-    for i in range(3):
-        ax[i].plot(time, v[i,:-1], label='body_vel')
-        ax[i].plot(time, traj_dbp[i,:], '--', label='ref')
-        ax[i].set_xlabel('Time [s]')
-        ax[i].set_ylabel(r''+LABEL[i]+' [m]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
+        for i in range(nx):  
+            f, ax = plt.subplots()
+            title = "BODY_VEL"+LABEL[i]
+            f.canvas.manager.set_window_title(title)
+            ax.plot(time, v[i,:-1], label=LABEL[i])
+            ax.plot(time, traj_dbp[i,:], '--', label=LABEL[i]+'期望')
+            ax.set_xlabel('时间(s)')
+            ax.set_ylabel('速度(m/s)')
+            ax.set_xlim(0,conf.T_SIMULATION)
+            set_ticks(ax,conf.T_SIMULATION/5,0.2)
+            ax.legend(loc=1)
+            f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight') 
 
-if(PLOT_BODY_VEL):    
-    (f, ax) = plut.create_empty_figure(3)
-    ax = ax.reshape(3)
-    title = "BODY_ACC"
-    f.suptitle(title, fontsize=16)
-    f.canvas.manager.set_window_title(title)
-    for i in range(3):
-        ax[i].plot(time, dv[i,:-1], label='body_acc')
-        ax[i].plot(time, traj_ddbp[i,:], '--', label='ref')
-        ax[i].set_xlabel('Time [s]')
-        ax[i].set_ylabel(r''+LABEL[i]+' [m]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
+
+
+if(PLOT_BODY_ACC):    
+        for i in range(nx):  
+            f, ax = plt.subplots()
+            title = "BODY_ACC"+LABEL[i]
+            f.canvas.manager.set_window_title(title)
+            ax.plot(time, dv[i,:-1], label=LABEL[i])
+            ax.plot(time, traj_ddbp[i,:], '--', label=LABEL[i]+'期望')
+            ax.set_xlabel('时间')
+            ax.set_ylabel('加速度')
+            ax.set_xlim(0,conf.T_SIMULATION)
+            set_ticks(ax,conf.T_SIMULATION/5,0.2)
+            ax.legend(loc=1)
+            f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight') 
 
 
 
 if(PLOT_DOG_JOINT_POS):    
-    (f, ax) = plut.create_empty_figure(6,2)
-    ax = ax.reshape(12)
-    title = "DOG_JOINT_POS"
-    f.suptitle(title, fontsize=16)
-    f.canvas.manager.set_window_title(title)
-    for i in range(12):
-        ax[i].plot(time, q[7+i,:-1], label='q')
-        ax[i].set_xlabel('Time [s]')
-        ax[i].set_ylabel(r'$q_{'+str(i)+'}$ [rad]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
+    for i in range(4):
+        (f, ax) = plt.subplots()
+        title = LEG_LABEL[i]+'_POS'
+        f.canvas.manager.set_window_title(title)
+        for j in range(3):
+            ax.plot(time, q[7+i*4+j,:-1], label='关节'+str(i*3+j))
+        ax.set_xlabel('时间(s)')
+        ax.set_ylabel('关节角度(rad)')
+        ax.set_xlim(0,conf.T_SIMULATION)
+        set_ticks(ax,conf.T_SIMULATION/5,0.5)
+        ax.legend(loc=1)
+        f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight')
 
-if(PLOT_ARM_JOINT_POS):    
-    (f, ax) = plut.create_empty_figure(6)
-    ax = ax.reshape(6)
-    title = "ARM_JOINT_POS"
-    f.suptitle(title, fontsize=16)
-    f.canvas.manager.set_window_title(title)
-    for i in range(6):
-        ax[i].plot(time, q[i-6,:-1], label='q')
-        ax[i].set_xlabel('Time [s]')
-        ax[i].set_ylabel(r'$q_{'+str(i)+'}$ [rad]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
-        
 
-if(PLOT_DOG_TORQUES):    
-    (f, ax) = plut.create_empty_figure(6,2)
-    ax = ax.reshape(12)
-    title = "DOG_TORQUES"
-    f.suptitle(title, fontsize=16)
-    f.canvas.manager.set_window_title(title)
-    for i in range(12):
-        ax[i].plot(time, tau[6+i,:], label=r'$\tau$ '+str(i))
-        ax[i].set_xlabel('Time [s]')
-        ax[i].set_ylabel(r'$\tau_{'+str(i)+'}$ [N/m]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
 
-if(PLOT_ARM_TORQUES):    
-    (f, ax) = plut.create_empty_figure(6)
-    ax = ax.reshape(6)
-    title = "ARM_TORQUES"
-    f.suptitle(title, fontsize=16)
+
+if(PLOT_DOG_JOINT_VEL):    
+    for i in range(4):
+        (f, ax) = plt.subplots()
+        title = LEG_LABEL[i]+'_VEL'
+        f.canvas.manager.set_window_title(title)
+        for j in range(3):
+            ax.plot(time, v[6+i*4+j,:-1], label='关节'+str(i*3+j))
+        ax.set_xlabel('时间(s)')
+        ax.set_ylabel('关节角速度(rad/s)')
+        ax.set_xlim(0,conf.T_SIMULATION)    
+        ax.set_ylim(-0.4,0.4)
+        set_ticks(ax,conf.T_SIMULATION/5,0.2)
+        ax.legend(loc=1)
+        f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight')
+
+
+
+# if(PLOT_DOG_JOINT_ACC):    
+#     for i in range(4):
+#         (f, ax) = plut.create_empty_figure(1,1)
+#         title = LEG_LABEL[i]+'_ACC'
+#         f.canvas.manager.set_window_title(title)
+#         for j in range(3):
+#             ax.plot(time, dv[6+i*4+j,:-1], label=r'$\ddot{q}_{'+str(i*3+j)+r'}$')
+#         ax.set_xlabel('时间(s)')
+#         ax.set_ylabel(r'Angle Acceleration [$rad/s^2$]')
+#         leg = ax.legend(loc=1)
+#         leg.get_frame().set_alpha(0.5)
+
+if(PLOT_DOG_JOINT_TOR):
+    for i in range(4):
+        (f, ax) = plt.subplots()
+        title = LEG_LABEL[i]+'_TORQUE'
+        f.canvas.manager.set_window_title(title)
+        for j in range(3):
+            ax.plot(time, tau[6+i*4+j,:], label='关节'+str(i*3+j))
+        ax.set_xlabel('时间(s)')
+        ax.set_ylabel('关节力矩(N/m)')
+        ax.set_xlim(0,conf.T_SIMULATION)
+        set_ticks(ax,conf.T_SIMULATION/5,5)
+        ax.legend(loc=1)
+        f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight')
+
+
+
+
+if(PLOT_ARM_JOINT_POS):
+    (f, ax) = plt.subplots()
+    title = 'Manipulation_POS'
     f.canvas.manager.set_window_title(title)
-    for i in range(6):
-        ax[i].plot(time, tau[i-6,:], label=r'$\tau$ '+str(i))
-        ax[i].set_xlabel('Time [s]')
-        ax[i].set_ylabel(r'$\tau_{'+str(i)+'}$ [N/m]')
-    leg = ax[0].legend()
-    leg.get_frame().set_alpha(0.5)
-        
-plt.show()
+    for j in range(6):
+        ax.plot(time, q[j-6,:-1], label='关节'+str(12+j))
+    ax.set_xlabel('时间(s)')
+    ax.set_ylabel('关节角度(rad)')
+    ax.set_xlim(0,conf.T_SIMULATION)
+    set_ticks(ax,conf.T_SIMULATION/5,1)
+    ax.legend(loc=1)
+    f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight')
+
+    
+
+
+if(PLOT_ARM_JOINT_VEL):
+    (f, ax) = plt.subplots()
+    title = 'Manipulation_VEL'
+    f.canvas.manager.set_window_title(title)
+    for j in range(6):
+        ax.plot(time, v[j-6,:-1], label='关节'+str(12+j))
+    ax.set_xlabel('时间(s)')
+    ax.set_ylabel('关节角速度(rad/s)')
+    ax.set_xlim(0,conf.T_SIMULATION)
+    ax.set_ylim(-5,5)
+    set_ticks(ax,conf.T_SIMULATION/5,1)
+    ax.legend(loc=1)
+    f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight')
+
+
+
+# if(PLOT_ARM_JOINT_ACC):
+#     (f, ax) = plt.subplots(figsize=(5.9,0.75*5.9))
+#     title = 'Manipulation_ACC'
+#     f.canvas.manager.set_window_title(title)
+#     for j in range(6):
+#         ax.plot(time, dv[j-6,:-1], label='关节'+str(12+j))
+#     ax.set_xlabel('时间(s)')
+#     ax.set_ylabel(r'Angle Acceleration [$rad/s^2$]')
+#     ax.legend(loc=1)
+
+
+
+if(PLOT_ARM_JOINT_TOR):    
+    (f, ax) = plt.subplots()
+    title = 'Manipulation_TOR'
+    f.canvas.manager.set_window_title(title)
+    for j in range(6):
+        ax.plot(time, tau[j-6,:], label='关节'+str(12+j))
+    ax.set_xlabel('时间(s)')
+    ax.set_ylabel('关节力矩(N/m)')
+    ax.set_xlim(0,conf.T_SIMULATION)
+    set_ticks(ax,conf.T_SIMULATION/5,5)
+    ax.legend(loc=1)
+    f.savefig(f_path+"exp3/"+title+".pdf",pad_inches=0.005,bbox_inches='tight')
+    
+# plt.show()

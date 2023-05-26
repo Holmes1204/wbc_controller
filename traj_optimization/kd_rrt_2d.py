@@ -1,23 +1,25 @@
 import numpy as np
 from numpy.linalg import norm
 from numpy.random import rand,uniform
-
+import sys
+sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+import utils.plot_utils as plut
 
 class Node:
     def __init__(self,p,parent=None):
         self.p = p
         self.parent = parent
-
+        self
 
 class RRTConnect:
-    def __init__(self, start, goal, obstacle_list, max_iter=100000, delta=0.01, epsilon=0.5):
+    def __init__(self, start, goal, obstacle_list, max_iter=3000, delta=0.01, epsilon=0.2):
         self.start = Node(start)
         self.goal = Node(goal)
         self.obstacle_list = obstacle_list
         self.max_iter = max_iter
         self.delta = delta
         self.epsilon = epsilon
-        self.dt = 1
+        self.dt = 1#which decide the time
         #strat to end
         self.node_list1 = [self.start]
         #end to start
@@ -54,7 +56,7 @@ class RRTConnect:
             print("iteration",i,norm(p1.p[:2]-p2.p[:2]),norm(p1.p[2:]-p2.p[2:]))
 
 
-        return None
+        return self.node_list1,self.node_list2
 
     def steer(self, from_node, to_node,direct):
         # dist = math.sqrt((to_node.x - from_node.x)**2 + (to_node.y - from_node.y)**2)
@@ -70,8 +72,8 @@ class RRTConnect:
             if direct:
                 p_ = np.hstack([from_node.p[:2] +self.dt*from_node.p[2:],
                                 from_node.p[2:] +self.dt*0.1*np.sign(to_node.p[2:]-from_node.p[2:])])
-            else:#backward,from_node and to_node is already inverse
-                p_ = np.hstack([from_node.p[:2] -self.dt*from_node.p[2:]-pow(self.dt,2)*10*np.sign(to_node.p[2:]-from_node.p[2:]),
+            else:#backward,from_node and to_node is already inverse，由t -> f, 又不符合要求，则从fnode倒推
+                p_ = np.hstack([from_node.p[:2] -self.dt*from_node.p[2:]-pow(self.dt,2)*0.05*np.sign(to_node.p[2:]-from_node.p[2:]),
                                 from_node.p[2:] +self.dt*0.1*np.sign(to_node.p[2:]-from_node.p[2:])])
             return Node(p_,from_node)
         else:
@@ -91,7 +93,7 @@ class RRTConnect:
 
     def check_collision(self, node, obstacle_list):
         for obs in obstacle_list:
-            if norm(node.p[:2]-np.array([obs[0],obs[1]])) <= obs[2]:
+            if norm(node.p[:2]-np.array([obs[0],obs[1]])) <= obs[2]+0.001:
                 return False
         return True
 
@@ -103,7 +105,7 @@ class RRTConnect:
         path1 = self.get_path(node1)
         path1.reverse()
         path2 = self.get_path(node2)
-        return path1 + path2
+        return self.node_list1,self.node_list2,path1,path2,path1 + path2
 
     def get_path(self, node):
         path = []
@@ -112,10 +114,14 @@ class RRTConnect:
             node = node.parent
         path.append(node.p)
         return path
-
+    
+font_size = 10.5
 #kd-rrt 2d
-
+f_path = '/home/holmes/Desktop/graduation/hitsz_paper/pictures/'
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
+# plt.rcParams['figure.layout']='tight'
 
 # Example usage
 # obstacle_list = [(0.5, 0.5,0.5, 0.1), (0.3,0.7,0.5,0.1),(0.7,0.3,0.5,0.1)]
@@ -147,19 +153,39 @@ obstacle_list = [(0.5, 0.5, 0.1),
                  (0.7,0.3,0.1)]
 
 rrt = RRTConnect(start, goal, obstacle_list)
-path = rrt.plan()
-
+t_s,t_e,path_s,path_e,path = rrt.plan()
+fig, ax = plt.subplots()
+pad = 1
+low = 1 -pad
+up = 1+pad
 if path is not None:
-    plt.plot([node[0] for node in path], [node[1] for node in path], '-r')
-    
-    plt.plot(start[0], start[1], 'bo')
-    plt.plot(goal[0], goal[1], 'bo')
+    ax.plot([node.p[0] for node in t_s], [node.p[1] for node in t_s], 'or')
+    ax.plot([node.p[0] for node in t_e], [node.p[1] for node in t_e], '*r')
+    ax.plot([node[0] for node in path_s], [node[1] for node in path_s], 'og')
+    ax.plot([node[0] for node in path_e], [node[1] for node in path_e], '*g')
+    ax.plot([node[0] for node in path], [node[1] for node in path], '--k')
+    ax.plot(start[0], start[1], 'bo')
+    ax.plot(goal[0], goal[1], 'bo')
+
     for obs in obstacle_list:
         circle = plt.Circle((obs[0], obs[1]), obs[2], color='k')
-        plt.gcf().gca().add_artist(circle)
-    plt.grid()
-    plt.axis('scaled')
-    plt.show()
+        # plt.gcf().gca().add_artist(circle)
+        ax.add_artist(circle)
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(0.2))
+    ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.02))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.02))
+    ax.set_xlabel('x方向距离(m)')
+    ax.set_ylabel('y方向距离(m)')
+    ax.axis([low,up]*2)
+    # ax.spines['bottom'].set_position('zero')
+    # ax.spines['left'].set_position('zero')
+    # ax.spines['right'].set_visible(False)
+    # ax.spines['top'].set_visible(False)
 
+    # ax.set_xlim(low,up)
+    # ax.set_ylim(low,up)
+    # fig.savefig(f_path+"test_font/test.pdf",pad_inches=0.005)
+    plt.show()
 else:
     print("No feasible path found.")
