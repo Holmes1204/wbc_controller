@@ -1,2 +1,1 @@
-# orc
-Material for lab sessions of "Optimization-based Robot Control" @ UniTN
+# some modified from the original version
