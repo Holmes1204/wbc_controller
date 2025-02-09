@@ -449,7 +449,7 @@ def body_traj_show(duration,polygons,shrink_support,dim,coeff):
     ax.yaxis.set_major_locator(ticker.MultipleLocator(0.01))
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.02))
     ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.001))
-    fig.savefig(f_path+"traj_opt/Figure_"+str(1)+".pdf",pad_inches=0.005,bbox_inches='tight')
+    # fig.savefig(f_path+"traj_opt/Figure_"+str(1)+".pdf",pad_inches=0.005,bbox_inches='tight')
 
     fig,ax = plt.subplots()
     for j in range(dim):
@@ -461,7 +461,7 @@ def body_traj_show(duration,polygons,shrink_support,dim,coeff):
     ax.yaxis.set_major_locator(ticker.MultipleLocator(0.04))
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.02))
     ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.004))
-    fig.savefig(f_path+"traj_opt/Figure_"+str(2)+".pdf",pad_inches=0.005,bbox_inches='tight')
+    # fig.savefig(f_path+"traj_opt/Figure_"+str(2)+".pdf",pad_inches=0.005,bbox_inches='tight')
     
 
     fig,ax = plt.subplots()
@@ -474,7 +474,7 @@ def body_traj_show(duration,polygons,shrink_support,dim,coeff):
     ax.yaxis.set_major_locator(ticker.MultipleLocator(0.4))
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.02))
     ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.04))
-    fig.savefig(f_path+"traj_opt/Figure_"+str(3)+".pdf",pad_inches=0.005,bbox_inches='tight')
+    # fig.savefig(f_path+"traj_opt/Figure_"+str(3)+".pdf",pad_inches=0.005,bbox_inches='tight')
     
 
     fig,ax = plt.subplots()
@@ -489,7 +489,7 @@ def body_traj_show(duration,polygons,shrink_support,dim,coeff):
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.004))
     ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.004))
     ax.legend(loc=1)
-    fig.savefig(f_path+"traj_opt/Figure_"+str(4)+".pdf",pad_inches=0.005,bbox_inches='tight')
+    # fig.savefig(f_path+"traj_opt/Figure_"+str(4)+".pdf",pad_inches=0.005,bbox_inches='tight')
 
     for i in range(len(polygons)):
         fig,ax = plt.subplots()
@@ -506,5 +506,5 @@ def body_traj_show(duration,polygons,shrink_support,dim,coeff):
         ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.008))
         ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.008))
         ax.legend(loc=1)
-        fig.savefig(f_path+"traj_opt/Figure_"+str(i+5)+".pdf",pad_inches=0.005,bbox_inches='tight')
+        # fig.savefig(f_path+"traj_opt/Figure_"+str(i+5)+".pdf",pad_inches=0.005,bbox_inches='tight')
         # plot_convex_quiver(shrink_support[i][0],edge[i],'r')

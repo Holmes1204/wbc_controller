@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 import time
 from math import sqrt
 import sys
-sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+sys.path.append("/home/holmes/Data/python/wbc_controller")
 import utils.plot_utils as plut
-from utils.robot_loaders import loadUR
+# from utils.robot_loaders import loadUR
 from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator
 import main_1_conf as conf
 import solutions.main_1_solution as solution
-from example_robot_data.robots_loader import load
+# from example_robot_data.robots_loader import load
 import pinocchio as pin
 from local_planner import local_planner,reduce_convex
 from solutions.WBC_HO import task,WBC_HO
@@ -33,7 +33,7 @@ PLOT_DOG_TORQUES = 0
 rmodel, rcollision_model, rvisual_model = pin.buildModelsFromUrdf("./a1_description/urdf/a1.urdf", ".",pin.JointModelFreeFlyer())
 robot = RobotWrapper(rmodel, rcollision_model, rvisual_model)   
 simu = RobotSimulator(conf, robot)
-local_plan  = local_planner(conf,1)
+local_plan  = local_planner(conf,1) 
 
 simu.add_contact_surface("ground",conf.ground_pos,conf.ground_normal, 
                          conf.ground_Kp,conf.ground_Kd,conf.ground_mu)
@@ -146,7 +146,7 @@ for ss in range(0, N):#ss: simualtion step
         #存在bug
         # print_each_support_polygon(support_polygon,shrink_polygon,edge)
         # print_all_support_polygon(support_polygon,shrink_polygon)
-        # plt.show()
+        plt.show()
 
     #planning
     n_contact = local_plan.contact_num()

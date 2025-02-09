@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 import time
 from math import sqrt
 import sys
-sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+sys.path.append("/home/holmes/Data/python/wbc_controller")
 import utils.plot_utils as plut
-from utils.robot_loaders import loadUR
+# from utils.robot_loaders import loadUR
 from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator
 import main_1_conf as conf
 import solutions.main_1_solution as solution
-from example_robot_data.robots_loader import load
+# from example_robot_data.robots_loader import load
 import pinocchio as pin
 from local_planner import local_planner,reduce_convex
 from solutions.WBC_HO import task,WBC_HO

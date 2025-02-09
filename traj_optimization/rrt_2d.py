@@ -1,7 +1,7 @@
 import random
 import math
 import sys
-sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+sys.path.append("/home/holmes/Data/python/wbc_controller")
 import utils.plot_utils as plut
 
 class Node:
@@ -142,7 +142,7 @@ if path is not None:
     ax.set_ylabel('y方向距离(m)')
     ax.axis([low,up]*2)
     ax.legend(loc=0)
-    fig.savefig(f_path+"kd_rrt/Figure_3.pdf",pad_inches=0.005)
+    # fig.savefig(f_path+"kd_rrt/Figure_3.pdf",pad_inches=0.005)
     plt.show()
 
 else:

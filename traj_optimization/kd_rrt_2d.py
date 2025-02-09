@@ -2,7 +2,7 @@ import numpy as np
 from numpy.linalg import norm
 from numpy.random import rand,uniform
 import sys
-sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+sys.path.append("/home/holmes/Data/python/wbc_controller")
 import utils.plot_utils as plut
 
 class Node:

@@ -6,7 +6,7 @@ from numpy import hstack,vstack,array
 from copy import deepcopy
 from traj import traj_opt,traj_opt_regular,body_traj_show
 import sys
-sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+sys.path.append("/home/holmes/Data/python/wbc_controller")
 import utils.plot_utils as plut
 def Acc(T,alpha=1e-8):
     return np.array([[400.0/7.0*pow(T,7),40*pow(T,6),120.0/5.0*pow(T,5),10*pow(T,4),0,0],

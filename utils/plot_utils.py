@@ -29,8 +29,8 @@ mpl.rcdefaults()
 
 from matplotlib.font_manager import fontManager as fm
 font_size = 10.5
-fm.addfont('/home/holmes/.local/share/fonts/Nsimsun.ttf')
-fm.addfont('/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf')
+# fm.addfont('/home/holmes/.local/share/fonts/Nsimsun.ttf')
+# fm.addfont('/usr/share/fonts/truetype/noto/NotoMono-Regular.ttf')
 textwidth = 5.9#inch
 w = 0.6*textwidth
 # 创建一个图表
@@ -39,8 +39,8 @@ plt.rcParams['figure.dpi']=300
 plt.rcParams['savefig.dpi']=300
 plt.rcParams['xtick.labelsize']=font_size
 plt.rcParams['ytick.labelsize']=font_size
-plt.rcParams['font.family'] = ['sans-serif','NSimSun']
-plt.rcParams['font.sans-serif'] = ['Times New Roman']
+plt.rcParams['font.family'] = ['sans-serif']
+plt.rcParams['font.sans-serif'] = ['Times New Roman','Noto Sans CJK JP']
 plt.rcParams['font.size']=font_size
 mpl.rcParams['figure.autolayout']   = True;
 mpl.rcParams['lines.linewidth']     = DEFAULT_LINE_WIDTH;

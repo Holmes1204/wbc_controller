@@ -50,7 +50,7 @@ ground_mu = 0.5
 randomize_robot_model = 0
 model_variation = 30.0
 
-use_viewer = 2#0 None, 1 Gepetto, 2 Rviz
+use_viewer = 1#0 None, 1 Gepetto, 2 Rviz
 simulate_real_time = False          # flag specifying whether simulation should be real time or as fast as possible
 show_floor = False
 PRINT_T = 0.01                  # print some info every PRINT_T seconds

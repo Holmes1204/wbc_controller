@@ -8,7 +8,7 @@
 #small brain or main brain?
 import numpy as np
 import sys
-sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+sys.path.append("/home/holmes/Data/python/wbc_controller")
 # print(sys.path)
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
@@ -321,7 +321,7 @@ class local_planner:
         coeff_regular =traj_opt_regular(self.duration,stp,dstp,ddstp,fp)
         r_coeff =traj_opt(self.duration,stp,dstp,ddstp,fp,edge,coeff_regular)
         self.coeff = coeff_regular
-        # body_traj_show(self.duration,support_polygon,shrink_polygon,2,self.coeff)
+        body_traj_show(self.duration,support_polygon,shrink_polygon,2,self.coeff)
         self.traj_time = 0
         
     def body_traj_update(self,dt):
@@ -437,7 +437,7 @@ if __name__ == "__main__":
         for i in range(4):
                 hip[i,:] = p+bias[i,:]
         #
-        local_plan.update(conf.dt,foot,hip,v,v)
+        local_plan.update_foot(foot,hip,v,v)
         for j in range(4) :
             if local_plan.in_contact(j):
                 pass 
@@ -447,7 +447,7 @@ if __name__ == "__main__":
 
         #1. plot the convex polygon , done
         if ss == 0:
-            support_polygon = local_plan.get_support_polygon(foot,local_plan.next_foot)
+            support_polygon = local_plan.get_support_polygon(foot=local_plan.next_foot)
             shrink_polygon,edge = reduce_convex(support_polygon)
             #2. add the ZMP dynamic Model and get the coefficients
             #  

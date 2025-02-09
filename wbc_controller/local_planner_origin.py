@@ -8,8 +8,8 @@
 #small brain or main brain?
 import numpy as np
 import sys
-sys.path.append("../")
-# print(sys.path)
+import sys
+sys.path.append("/home/holmes/Data/python/wbc_controller")
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv

@@ -5,13 +5,13 @@ import matplotlib.pyplot as plt
 import time
 from math import sqrt,sin,pi
 import sys
-sys.path.append("/home/holmes/Desktop/graduation/code/graduation_simulation_code")
+sys.path.append("/home/holmes/Data/python/wbc_controller")
 import utils.plot_utils as plut
 from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator
 import main_2_conf as conf
 import pinocchio as pin
-from reactive_control.local_planner import local_planner,reduce_convex
+from local_planner import local_planner,reduce_convex
 from solutions.WBC_HO import task,WBC_HO
 f_path = '/home/holmes/Desktop/graduation/hitsz_paper/pictures/'
 

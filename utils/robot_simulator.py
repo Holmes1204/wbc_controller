@@ -6,9 +6,10 @@ import math
 import gepetto.corbaserver
 import time
 import subprocess
-import rospy
-import tf
-from geometry_msgs.msg import TransformStamped
+from pinocchio.visualize import GepettoVisualizer
+# import rospy
+# import tf
+# from geometry_msgs.msg import TransformStamped
 
 class ContactPoint:
     ''' A point on the robot surface that can make contact with surfaces.
@@ -170,6 +171,7 @@ class RobotSimulator:
             except:
                 pass
             gepetto.corbaserver.Client()
+            self.robot.setVisualizer(GepettoVisualizer(self.robot.model, self.robot.collision_model, self.robot.visual_model))
             self.robot.initViewer(loadModel=False)
             self.gui = self.robot.viewer.gui
             if(conf.show_floor):
