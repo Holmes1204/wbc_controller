@@ -74,14 +74,14 @@ class WBC_HO:
             c = np.hstack([(A_@Z_).T@(b_ -A_@x),np.zeros(m)])
             if Ds_ is None:
                 Dhat = np.block([[D_@Z_,-np.eye(m)],
-                            [np.zeros((m,n)),np.eye(m)]])
+                            [np.zeros((m,n)),-np.eye(m)]])
                 fhat = np.block([f_ - D_@x,np.zeros(m)])
                 Ds_ = D_
                 fs_ = f_
             else:
                 Dhat = np.block([[D_@Z_          ,-np.eye(m)],
                                 [Ds_@Z_         ,np.zeros((Ds_.shape[0],m))],
-                                [np.zeros((m,n)),np.eye(m)]])
+                                [np.zeros((m,n)),-np.eye(m)]])
                 fhat = np.block([f_ - D_@x,fs_ - Ds_@x + va_,np.zeros(m)])
                 Ds_ = np.vstack([Ds_,D_])
                 fs_ = np.hstack([fs_,f_])

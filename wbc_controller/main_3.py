@@ -10,7 +10,7 @@ import utils.plot_utils as plut
 # from utils.robot_loaders import loadUR
 from utils.robot_wrapper import RobotWrapper
 from utils.robot_simulator import RobotSimulator
-import main_1_conf as conf
+import main_3_conf as conf
 import solutions.main_1_solution as solution
 # from example_robot_data.robots_loader import load
 import pinocchio as pin
@@ -146,7 +146,7 @@ for ss in range(0, N):#ss: simualtion step
         #存在bug
         # print_each_support_polygon(support_polygon,shrink_polygon,edge)
         # print_all_support_polygon(support_polygon,shrink_polygon)
-        plt.show()
+        # plt.show()
 
     #planning
     n_contact = local_plan.contact_num()

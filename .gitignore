@@ -133,3 +133,4 @@ Icon[
 build/
 devel/
 .catkin_workspace
+mujoco_sim/

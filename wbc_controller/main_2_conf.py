@@ -6,7 +6,7 @@ from math import sqrt
 np.set_printoptions(precision=3, linewidth=200, suppress=True)
 LINE_WIDTH = 60
 
-q0 = np.array([0.0,0.0,0.31836983483860026,0.0,0.0,0.0,1.0,0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3,1.5707,2.618,-1.5707,-1.5707,3.1415, 0.])# floating base
+q0 = np.array([0.0,0.0,0.325,0.0,0.0,0.0,1.0,0.0, 0.67, -1.3, -0.0, 0.67, -1.3, 0.0, 0.67, -1.3, -0.0, 0.67, -1.3,1.5707,2.618,4.7707,-1.5707,3.1415, 0.])# floating base
 #simulation settings
 T_SIMULATION = 3          # simulation time
 dt = 0.001                   # controller time step second control time
