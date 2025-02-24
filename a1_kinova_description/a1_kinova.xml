@@ -130,37 +130,37 @@
       </body>
       <body name="j2s6s200_link_1" pos="0 0 0.15675" quat="0 -0.707107 0.707107 0">
         <inertial pos="0 -0.002 -0.0605" mass="0.7477" diaginertia="0.00152032 0.00152032 0.00059816"/>
-        <joint name="j2s6s200_joint_1" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-40 40" class='arm'/>
+        <joint name="j2s6s200_joint_1" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-200 200" class='arm'/>
         <geom type="mesh" class='arm_visual' mesh="shoulder"/>
         <geom type="mesh" class='arm_visual' mesh="ring_big"/>
         <!-- <geom type="mesh" class="collision" mesh="shoulder"/> -->
         <body name="j2s6s200_link_2" pos="0 0.0016 -0.11875" quat="0 0 -0.707107 0.707107">
           <inertial pos="0 -0.2065 -0.01" quat="0.707107 0.707107 0 0" mass="0.99" diaginertia="0.0105022 0.0105022 0.000792"/>
-          <joint name="j2s6s200_joint_2" pos="0 0 0" axis="0 0 1" range="0.820305 5.46288" actuatorfrcrange="-80 80" class='arm'/>
+          <joint name="j2s6s200_joint_2" pos="0 0 0" axis="0 0 1" range="0.820305 5.46288" actuatorfrcrange="-200 200" class='arm'/>
           <geom type="mesh" class='arm_visual' mesh="arm"/>
           <geom type="mesh" class='arm_visual' mesh="ring_big"/>
           <!-- <geom type="mesh" class="collision" mesh="arm"/> -->
           <body name="j2s6s200_link_3" pos="0 -0.41 0" quat="0 0 1 0">
             <inertial pos="0 0.081 -0.0086" quat="0.707107 0.707107 0 0" mass="0.6763" diaginertia="0.00142022 0.00142022 0.000304335"/>
-            <joint name="j2s6s200_joint_3" pos="0 0 0" axis="0 0 1" range="0.331613 5.95157" actuatorfrcrange="-40 40" class='arm'/>
+            <joint name="j2s6s200_joint_3" pos="0 0 0" axis="0 0 1" range="0.331613 5.95157" actuatorfrcrange="-200 200" class='arm'/>
             <geom type="mesh" class='arm_visual' mesh="forearm"/>
             <geom type="mesh" class='arm_visual' mesh="ring_big"/>
             <!-- <geom type="mesh" class="collision" mesh="forearm"/> -->
             <body name="j2s6s200_link_4" pos="0 0.2073 -0.0114" quat="0 0 -0.707107 0.707107">
               <inertial pos="0 0.00288489 -0.0541933" mass="0.463" diaginertia="0.000432132 0.000432132 9.26e-05"/>
-              <joint name="j2s6s200_joint_4" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-20 20" class='arm'/>
+              <joint name="j2s6s200_joint_4" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-200 200" class='arm'/>
               <geom type="mesh" class='arm_visual' mesh="wrist_spherical_1"/>
               <geom type="mesh" class='arm_visual' mesh="ring_small"/>
               <!-- <geom type="mesh" class="collision" mesh="wrist_spherical_1"/> -->
               <body name="j2s6s200_link_5" pos="0 0 -0.10375" quat="0 0 0.707107 0.707107">
                 <inertial pos="0 0.0497209 -0.00285628" quat="0.707107 0.707107 0 0" mass="0.463" diaginertia="0.000432132 0.000432132 9.26e-05"/>
-                <joint name="j2s6s200_joint_5" pos="0 0 0" axis="0 0 1" range="0.523599 5.75959" actuatorfrcrange="-20 20" class='arm'/>
+                <joint name="j2s6s200_joint_5" pos="0 0 0" axis="0 0 1" range="0.523599 5.75959" actuatorfrcrange="-200 200" class='arm'/>
                 <geom type="mesh" class='arm_visual' mesh="wrist_spherical_2"/>
                 <geom type="mesh" class='arm_visual' mesh="ring_small"/>
                 <!-- <geom type="mesh" class="collision" mesh="wrist_spherical_2"/> -->
                 <body name="j2s6s200_link_6" pos="0 0.10375 0" quat="0 0 -0.707107 0.707107">
                   <inertial pos="-9.70874e-05 0 -0.0631156" quat="0.691759 0.691759 0.146524 -0.146524" mass="1.03" diaginertia="0.000795021 0.000774215 0.000602047"/>
-                  <joint name="j2s6s200_joint_6" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-20 20" class='arm'/>
+                  <joint name="j2s6s200_joint_6" pos="0 0 0" axis="0 0 1" range="-6.28319 6.28319" actuatorfrcrange="-200 200" class='arm'/>
                   <geom type="mesh" class='arm_visual'  mesh="hand_2finger"/>
                   <geom type="mesh" class='arm_visual'  mesh="ring_small"/>
                   <geom type="mesh" class="collision" mesh="hand_2finger"/>

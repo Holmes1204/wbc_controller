@@ -13,11 +13,12 @@ import solutions.main_1_solution as solution
 import pinocchio as pin
 # from local_planner import local_planner,reduce_convex
 from solutions.WBC_HO_qp import task,WBC_HO
-
+from dm_control.mujoco.wrapper.mjbindings import enums
+import itertools
 
 import mujoco
 import mujoco.viewer
-mj_model = mujoco.MjModel.from_xml_path('/home/holmes/Data/python/wbc_controller/mujoco_sim/mujoco_menagerie/unitree_a1/scene.xml')
+mj_model = mujoco.MjModel.from_xml_path('/home/holmes/Data/python/wbc_controller/unitree_a1/scene.xml')
 mj_data = mujoco.MjData(mj_model)
 mj_model.opt.timestep = conf.dt/conf.ndt
 #  heading x positive direction, lifting  left front leg
@@ -123,7 +124,7 @@ def to_pin_v(v):
 ss = 0
 mj_data.qpos[:] = to_mj(pin_init_pos)
 mj_data.qvel[:] = np.zeros(robot.nv)
-
+mujoco.mj_forward(mj_model, mj_data)
 
 # gait pattern & trajectory generator, the prdefined contact sequence
 # whole body controller tracking the gait related trajectory
@@ -132,9 +133,14 @@ data_to_lot2 = np.zeros((3,10000))
 n_c = 4 
 n_u = 18
 
-with mujoco.viewer.launch_passive(mj_model, mj_data) as viewer:
-  start = time.time()
-  while viewer.is_running() and time.time() - start < 100:
+with mujoco.viewer.launch_passive(mj_model, mj_data,show_left_ui=True,show_right_ui=False) as viewer:
+  viewer.cam.azimuth= 135.0
+  viewer.cam.distance= 2.0
+  viewer.cam.elevation= -40.0
+  viewer.cam.lookat= np.array([0., 0., 0.])
+#   viewer.user_scn.flags[mujoco.mjtRndFlag.mjRND_WIREFRAME] = 1
+  viewer.sync()
+  while viewer.is_running():
     time_start = time.time()
     # state feedback and its value  check before simulation
     q = to_pin(mj_data.qpos)
@@ -200,18 +206,35 @@ with mujoco.viewer.launch_passive(mj_model, mj_data) as viewer:
     
     
     omega = 2*math.pi/2.0
-    amp = 0.01
+    amp = 0.03
     phi = math.pi/4
+    phi_x = 0
     o1 = amp*math.sin(omega*t+phi)
     o2 = amp*omega*math.cos(omega*t+phi)
     o3 = -amp*omega*omega*math.sin(omega*t+phi)
-    target_base = np.array([0.0+o1,0.0+o1,0.30 +o1])
-    target_bv   = np.array([0.0+o2,0.0+o2, 0.0 +o2])
-    target_ba   = np.array([0.0+o3,0.0+o3, 0.0 +o3])
+    ox1 = amp*math.sin(omega*t+phi_x)
+    ox2 = amp*omega*math.cos(omega*t+phi_x)
+    ox3 = -amp*omega*omega*math.sin(omega*t+phi_x)
+    target_base = np.array([0.0+ox1,0.0+o1,0.30 +o1])
+    target_bv   = np.array([0.0+ox2,0.0+o2, 0.0 +o2])
+    target_ba   = np.array([0.0+ox3,0.0+o3, 0.0 +o3])
     
     data_to_lot1[:,ss] = x_bp
     data_to_lot2[:,ss] = target_base
-    
+
+    viewer.user_scn.ngeom = 0
+    i = 0
+    for x, y, z in itertools.product(*((range(-1, 2),) * 3)):
+      mujoco.mjv_initGeom(
+          viewer.user_scn.geoms[i],
+          type=mujoco.mjtGeom.mjGEOM_SPHERE,
+          size=[0.02, 0, 0],
+          pos=0.1*np.array([x, y, z]),
+          mat=np.eye(3).flatten(),
+          rgba=0.5*np.array([x + 1, y + 1, z + 1, 2])
+      )
+      i += 1
+    viewer.user_scn.ngeom = i
 
     n_c =4
     M_f = M[:6,:]

@@ -58,7 +58,7 @@ def to_pin_v(v):
 
 import mujoco
 import mujoco.viewer
-mj_model = mujoco.MjModel.from_xml_path('/home/holmes/Data/python/wbc_controller/mujoco_sim/a1_kinova_description/scene.xml')
+mj_model = mujoco.MjModel.from_xml_path('./a1_kinova_description/scene.xml')
 mj_data = mujoco.MjData(mj_model)
 mj_model.opt.timestep = conf.dt/conf.ndt
 mj_data.qpos = to_mj(conf.q0)
@@ -131,7 +131,11 @@ dJdq_bR = np.zeros(3)
 
 ss = 0
 
-with mujoco.viewer.launch_passive(mj_model, mj_data) as viewer:
+with mujoco.viewer.launch_passive(mj_model, mj_data,show_left_ui=False,show_right_ui=False) as viewer:
+  viewer.cam.azimuth   = 145.0
+  viewer.cam.distance  = 2.0
+  viewer.cam.elevation = -10.0
+  viewer.cam.lookat= np.array([0., 0., .5])
   sim_start = time.time()
   while viewer.is_running():
     step_start = time.time()
@@ -340,10 +344,10 @@ with mujoco.viewer.launch_passive(mj_model, mj_data) as viewer:
     # tasks.append(task(A3,b3,None,None,2))
     tasks.append(task(3,(A3,b3),None)) # tracking 
     #set reference (world frame)
-    Kp_mp = 5
-    Kd_mp = 2*sqrt(Kp_mp)
-    Kp_mR = 5
-    Kd_mR = 2*sqrt(Kp_mR)
+    Kp_mp = 500
+    Kd_mp = 1*sqrt(Kp_mp)
+    Kp_mR = 500
+    Kd_mR = 1.0*sqrt(Kp_mR)
 
     f = 1
     omega = 2*pi*f
@@ -367,7 +371,7 @@ with mujoco.viewer.launch_passive(mj_model, mj_data) as viewer:
     # A5 = np.hstack([np.zeros((6,18)),np.eye(6),np.zeros((6,nt))])
     # b5 = np.hstack(Kp_mp*(q0-q[-6:])-Kd_mp*v[-6:])
     # tasks.append(task(A5,b5,None,None,3))
-    tasks.append(task(3,(A5,b5),None)) # minimize force
+    tasks.append(task(4,(A5,b5),None)) # minimize force
     
     #record to print the data
     mx= x_mp
@@ -389,8 +393,6 @@ with mujoco.viewer.launch_passive(mj_model, mj_data) as viewer:
     print("eval eq 2",np.linalg.norm(A2@out-b2))
     print("eval eq 3",np.linalg.norm(A3@out-b3))
     # print("eval eq 4",np.linalg.norm(A4@out-b4))
-    print('force',F.reshape(-1,3)) 
-    print('Jst\n',J_st) 
     print("--------check--------↑")
 
 
@@ -400,8 +402,8 @@ with mujoco.viewer.launch_passive(mj_model, mj_data) as viewer:
     kd = 1*sqrt(kp)
     tau_pd = kp*(pin_init_j_pos-q[7:]) - kd*v[6:]
     mj_data.ctrl = to_mj_tau(tau)
-    # for i in range(conf.ndt):
-    #     mujoco.mj_step(mj_model, mj_data)
+    for i in range(conf.ndt):
+        mujoco.mj_step(mj_model, mj_data)
     local_plan.update_phase(conf.dt)
     t += conf.dt
 

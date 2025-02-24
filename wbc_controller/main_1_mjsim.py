@@ -17,7 +17,7 @@ from solutions.WBC_HO_qp import task,WBC_HO
 
 import mujoco
 import mujoco.viewer
-model = mujoco.MjModel.from_xml_path('/home/holmes/Data/python/wbc_controller/mujoco_sim/mujoco_menagerie/unitree_a1/scene.xml')
+model = mujoco.MjModel.from_xml_path('/home/holmes/Data/python/wbc_controller/unitree_a1/scene.xml')
 mj_data = mujoco.MjData(model)
 model.opt.timestep = conf.dt/conf.ndt
 #  heading x positive direction, lifting  left front leg
@@ -132,7 +132,11 @@ data_to_lot2 = np.zeros((3,10000))
 n_c = 4 
 n_u = 18
 
-with mujoco.viewer.launch_passive(model, mj_data) as viewer:
+with mujoco.viewer.launch_passive(model, mj_data,show_left_ui=False,show_right_ui=False) as viewer:
+  viewer.cam.azimuth= 90.0
+  viewer.cam.distance= 2.0
+  viewer.cam.elevation= -10.0
+  viewer.cam.lookat= np.array([0., 0., 0.])
   start = time.time()
   while viewer.is_running() and time.time() - start < 100:
     time_start = time.time()
@@ -298,7 +302,7 @@ with mujoco.viewer.launch_passive(model, mj_data) as viewer:
         f2 = beta_st - B_st@inv(R)@Q_c.T@h
         #task3
         Kp_sw = 1000
-        Kd_sw = 2*sqrt(Kp_sw)
+        Kd_sw = 1*sqrt(Kp_sw)
         A4 = np.hstack([J_sw,np.zeros((3*(4-n_contact),12))])
         b4 = -dJdq_sw+Kp_sw*(p_sw_des-p_sw)+Kd_sw*(dp_sw_des-dp_sw)+ddp_sw_des
         
@@ -312,21 +316,22 @@ with mujoco.viewer.launch_passive(model, mj_data) as viewer:
         A4 = np.hstack([J_sw,np.zeros((3*(4-n_contact),12))])
         b4 = -dJdq_sw+Kp_sw*(p_sw_des-p_sw)+Kd_sw*(dp_sw_des-dp_sw)
         tasks.append(task(2,(A4,b4),None))
-
+        raise ValueError('n_contact is not valid')
 #
-    Kp_bp = 1
-    Kd_bp = 2*sqrt(Kp_bp)
-    kkp = 1000
-    Kp_bR = 100
+    Kp_bp = 1000
+    Kd_bp = 1*sqrt(Kp_bp)
+    kkp = 1
+    Kp_bR = 5
     Kd_bR = 2*sqrt(Kp_bR)
     #
     traj_p,traj_dp,traj_ddp = local_plan.body_traj_update(conf.dt)
     # x_bp_des = np.array([traj_p[0],traj_dp[1],0.32])
     # dx_bp_des = np.array([traj_dp[0],traj_dp[1],0])
     # ddx_bp_des = np.array([traj_ddp[0],traj_ddp[1],0])
-    x_bp_des = np.array([0.2*(ss/N)*(ss/N)/2.0,0.0,0.32])
-    dx_bp_des = np.array([0.2*ss/N,0.0,0])
-    ddx_bp_des = np.array([0.2,0,0])
+    x_bp_des = np.array([0.8*(ss/N)*(ss/N)/2.0,0.0,0.32])
+    dx_bp_des = np.array([0.8*ss/N,0.0,0])
+    ddx_bp_des = np.array([0.8,0,0])
+    print(x_bp_des)
     # traj_bp[:]= x_bp_des
     # traj_dbp[:]= dx_bp_des
     # traj_ddbp[:]= ddx_bp_des
@@ -338,7 +343,7 @@ with mujoco.viewer.launch_passive(model, mj_data) as viewer:
     b3 = np.hstack([-dJdq_bp+kkp*(ddx_bp_des+Kp_bp*(x_bp_des-x_bp)+Kd_bp*(dx_bp_des-dx_bp)),
                     -dJdq_bR+Kp_bR*(pin.log3(x_bR_des.dot(x_bR.T)))+Kd_bR*(dx_bR_des-dx_bR)])
 
-    tasks.append(task(3,(A3,b3),None))
+    tasks.append(task(2,(A3,b3),None))
     out = WBC_HO(tasks).solve()
 
     F = inv(R)@Q_c.T@(M@out[:18]+h-S.T@out[18:])
