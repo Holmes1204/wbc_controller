@@ -122,7 +122,13 @@ fig, ax = plt.subplots()
 pad = 0.1
 low = 0 -pad
 up = 1+pad
-
+# [node[0] for node in path]
+# [node[1] for node in path]
+import numpy as np 
+traj = np.array(path)   
+np.savez("traj.npz", traj=traj)
+plt.figure()
+plt.plot(traj[:,0],traj[:,1])
 if path is not None:
     ax.plot([node.x for node in t_s], [node.y for node in t_s], 'oy',label='起点树节点')
     ax.plot([node.x for node in t_e], [node.y for node in t_e], '*g',label='终点树节点')
