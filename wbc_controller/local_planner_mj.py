@@ -13,11 +13,11 @@ sys.path.append("/home/holmes/Data/python/wbc_controller")
 import matplotlib.pyplot as plt
 from quadprog import solve_qp
 from numpy.linalg import matrix_rank as rank,inv
-from traj_optimization.traj import traj_opt,traj_opt_regular,body_traj_show
+from traj_optimization.traj import traj_opt,traj_opt_regular
 from math import sqrt
 import local_planner_conf as conf
 from copy import deepcopy
-
+from scipy.spatial.transform import Rotation as R
 
 
 def nt(t):
@@ -86,7 +86,7 @@ def traj_2seg_spline(p_s,p_e,p_m,T):
     return xf
 
 def swing_foot_plan(p_s,p_e,T):
-    z = 0.02
+    z = 0.05
     A = mT(T)
     A_inv = inv(A)
     Az = mT(T/2.0)
@@ -97,11 +97,6 @@ def swing_foot_plan(p_s,p_e,T):
     coeff2_2 = Az_inv[:,0]*z
     return coeff0,coeff1,np.hstack([coeff2_1,coeff2_2])
 
-def swing_foot_traj_get(t,T,coeff0,coeff1,coeff2):
-    x = T_all(t)@coeff0
-    y = T_all(t)@coeff1
-    z = T_all(t)@coeff2[:6] if t < T/2 else T_all(t-T/2)@coeff2[6:]
-    return np.array([x[0],y[0],z[0]]),np.array([x[1],y[1],z[1]]),np.array([x[2],y[2],z[2]])
 
 def plot_convex_shape(vertices_, color='k'):
     """Plot a convex shape given its vertices using matplotlib."""
@@ -135,7 +130,7 @@ def plot_convex_quiver(vertices,edge=None, color='k'):
 
 
 
-def reduce_convex(polygon_set,s=0.05,w=0.025):
+def reduce_convex(polygon_set,s=0.005,w=0.025):
     """reduce the shape of the support polygons"""
     def calcualte_p(num,modified_vertex,origin_vertex):
         c = np.zeros(num)
@@ -150,7 +145,7 @@ def reduce_convex(polygon_set,s=0.05,w=0.025):
             # modified_vertex[(i + 1) % num] +=s*normal
         for i in range(num):
             modified_vertex[(i+1)%num] = -np.linalg.inv(vec_n[[i,(i+1)% num]])@c[[i,(i+1)% num]]
-        reduce_polygon.append((modified_vertex,duration))
+        reduce_polygon.append([np.vstack(modified_vertex),duration])
         edge.append(np.hstack([vec_n,c.reshape(1,-1).T]))
 
     #
@@ -201,42 +196,68 @@ class local_planner:
         self.conf = conf
         self.cur = 0.0
         self.phase = np.zeros(4)#  when in contact the phase decreasing for 0.75* T_gait to 0, when in swing the phase increasing for 0 to 0.25*T_gait seconds 
-        self.next_foot =np.zeros((4,2))
-        self.cur_foot = np.zeros((4,2))
+        self.next_foot =np.zeros((4,3))
+        self.cur_foot = np.zeros((4,3))
         self.coeff0 = np.zeros((4,6))
         self.coeff1 = np.zeros((4,6))
         self.coeff2 = np.zeros((4,12))
         self.dim  = 2   
-        return
+        # for foot hold prediction
+
+        self.p_h = np.array([[ 0.174,  0.131,  0.002],
+                  [ 0.174, -0.131,  0.002],
+                  [-0.187,  0.131,  0.002],
+                  [-0.187, -0.131,  0.002]])  
+        self.cur_foot[:] = self.p_h
+        self.next_foot[:] = self.p_h
     
     
-    
+    def predict_future_foothold(self,base_pos,phi,v,v_cmd,w_cmd):
+        p_f = np.zeros((4,3))
+        # v_cmd = np.zeros(3)
+        # w_cmd =0.0
+        # p= np.zeros(3)
+        # phi= 0.0
+        # v = np.zeros(3)
+        # predict next base position and yaw angle
+        base_pos_next = base_pos + v*self.T_gait
+        phi_next = phi+ w_cmd*self.T_gait
+        Rz = R.from_euler("z",phi_next).as_matrix()
+        p_f[:,:2] = base_pos_next[:2] \
+                        + (self.p_h@Rz.T)[:,:2] \
+                        + self.stance_phase*self.T_gait/2.0*v[:2] \
+                        + 0.5*sqrt(0.32/9.81)*np.array([[0,w_cmd],[-w_cmd,0]])@v[:2] #+ 0.01*(v-v_cmd)[:2] 
+        self.next_foot[:] = p_f
+        return p_f
+
+
     #exist bugs about the duration between the head and the end
-    def update(self,T,foot,hip,v_ref,v_hip):
+    def update(self,T,foot,p,phi,v,v_cmd,w_cmd):
         self.cur = T%self.T_gait
         for i in range(4):
             if self.cur > self.lift_off[i] and self.cur < self.touch_down[i]:
+                if self.contact[i]:
+                    self.start_swing[i] = True
                 self.contact[i] = False
-                self.start_stand[i] = True
                 self.phase[i] = (self.cur - self.lift_off[i])#in time (second)
             else:
+                if not self.contact[i]:
+                    self.start_stand[i] = True
                 self.contact[i] = True
-                self.start_swing[i] = True
                 self.phase[i] = (self.T_gait-self.cur+self.lift_off[i]) \
                     if self.cur > self.lift_off[i] else (self.lift_off[i]-self.cur)
                 #get current foot step
-                self.cur_foot[i] = foot[i][:2]
+                self.cur_foot[i] = foot[i]# world frame position
             if self.start_stand[i] :
                 #do some thing        
                 self.start_stand[i]  = False
 
             if self.start_swing[i] :
                 #do some thing
-                self.coeff0[i],self.coeff1[i],self.coeff2[i] = swing_foot_plan(foot[i],self.next_foot[i],self.swing_phase)
                 self.start_swing[i]  = False
+                self.coeff0[i],self.coeff1[i],self.coeff2[i] = swing_foot_plan(self.cur_foot[i][:2],self.next_foot[i],self.swing_phase)
                 self.cur_foot[i] = self.next_foot[i]
                     # predict next foot hold for all foot
-        # self.next_foot = self.cur_foot + np.array([hip[0]+v_ref[0]*self.stance_phase/2.0,hip[1]+v_ref[1]*self.stance_phase/2.0])
 
 
     def in_contact(self,leg):
@@ -272,6 +293,7 @@ class local_planner:
             else:
                 b[m] -=t
         t = 0
+        # initialize foot
         foot_ = []
         for m in range(4):
             if self.in_contact(m):
@@ -283,7 +305,7 @@ class local_planner:
         support_polygon = []
         #make sure the change of next_foot in other function will not change the value here
         #because it contains all the numpy array data structure
-        next_foot_ =self.next_foot.copy()
+        next_foot_ = self.next_foot[:,:2]
         #
         while len(a)>0 or len(b)>0:
             if len(a)>0 and len(b)>0:
@@ -333,18 +355,19 @@ class local_planner:
         print(str(self.cur)+"\n",n,self.contact,self.phase)
     
 
-    def body_traj_plan(self,stp,dstp,ddstp,final_pos,edge,support_polygon,shrink_polygon):
-        self.duration=[support_polygon[j][1] for j in range(len(support_polygon))]
-        self.traj_tot_time = sum(self.duration)
-        self.cum_duration = np.cumsum(self.duration)
-        coeff_regular =traj_opt_regular(self.duration,stp,dstp,ddstp,final_pos)
-        r_coeff =traj_opt(self.duration,stp,dstp,ddstp,final_pos,edge,coeff_regular)
+    def body_traj_plan(self,t,duration,stp,dstp,ddstp,final_pos,edge):
+        self.traj_tot_time = sum(duration)
+        self.cum_duration = np.cumsum(duration)
+        coeff_regular =traj_opt_regular(duration,stp,dstp,ddstp,final_pos)
+        r_coeff =traj_opt(duration,stp,dstp,ddstp,final_pos,edge,coeff_regular)
         self.coeff = coeff_regular
-        body_traj_show(self.duration,support_polygon,shrink_polygon,2,self.coeff)
+        self.t0 = t
+
 
         
     def body_traj_update(self,sample_t):
         dim  = self.dim 
+        sample_t = sample_t - self.t0
         p = np.zeros(2)
         v = np.zeros(2)
         a = np.zeros(2)
